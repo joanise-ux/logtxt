@@ -3,7 +3,7 @@
    strategia: network-first z zapasem z cache (działa offline)
    ═══════════════════════════════════════════════════════════════ */
 
-const CACHE = "logtxt-v1";
+const CACHE = "logtxt-v2";
 const ASSETS = [
   "./",
   "./index.html",
