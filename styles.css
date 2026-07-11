@@ -12,32 +12,30 @@
   --ease: cubic-bezier(0.25, 0.8, 0.35, 1);
 }
 
-/* ── motyw ciemny: sakura terminal ──
-   paleta: Back in Black #16131F · Mountain Heather #F0D9E4
-   Decanting #C1A0AC · Funkie Friday #4A3F4B · Moonscape #806C79 */
+/* ── motyw ciemny: terminal ── */
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #16131f;
-  --bg-panel: #1e1927;
-  --bg-raised: #2a2231;
-  --bg-input: #1a151f;
-  --border: #4a3f4b;
-  --border-soft: #2b2433;
-  --text: #ede3e9;
-  --text-dim: #c1a0ac;
-  --text-faint: #806c79;
-  --accent: #f0d9e4;          /* mountain heather */
-  --accent-2: #c1a0ac;        /* decanting */
-  --accent-3: #a18b98;        /* moonscape, rozjaśniony dla czytelności */
-  --accent-warn: #d9bc9a;
-  --accent-bg: rgba(240, 217, 228, 0.10);
-  --accent-2-bg: rgba(193, 160, 172, 0.15);
-  --accent-3-bg: rgba(128, 108, 121, 0.22);
-  --glow: 0 0 14px rgba(240, 217, 228, 0.20);
-  --glow-2: 0 0 14px rgba(193, 160, 172, 0.28);
-  --shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
-  --mood-1: #4a3f4b; --mood-2: #665663; --mood-3: #806c79; --mood-4: #c1a0ac; --mood-5: #f0d9e4;
-  --scrim: rgba(10, 8, 14, 0.6);
+  --bg: #0d0f12;
+  --bg-panel: #14171c;
+  --bg-raised: #1a1e25;
+  --bg-input: #0f1116;
+  --border: #262b34;
+  --border-soft: #1d222a;
+  --text: #e4e8ef;
+  --text-dim: #8b93a3;
+  --text-faint: #5b6373;
+  --accent: #4ade80;          /* neonowa zieleń */
+  --accent-2: #a78bfa;        /* elektryczny fiolet */
+  --accent-3: #22d3ee;        /* cyjan */
+  --accent-warn: #fbbf24;
+  --accent-bg: rgba(74, 222, 128, 0.10);
+  --accent-2-bg: rgba(167, 139, 250, 0.12);
+  --accent-3-bg: rgba(34, 211, 238, 0.10);
+  --glow: 0 0 14px rgba(74, 222, 128, 0.22);
+  --glow-2: 0 0 14px rgba(167, 139, 250, 0.25);
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  --mood-1: #3b2d4f; --mood-2: #4c3a75; --mood-3: #6d5bb0; --mood-4: #8f7ae0; --mood-5: #4ade80;
+  --scrim: rgba(6, 8, 10, 0.6);
 }
 
 /* ── motyw jasny: dziennik ── */
