@@ -218,7 +218,7 @@
   }
 
   function entryCard(e) {
-    return `<article class="entry-card">
+    return `<article class="entry-card" data-item-id="${e.id}">
       <div class="entry-meta">
         <span class="entry-hash">${hashOf(e.id)}</span>
         <span class="entry-file">${fmtFile(e.ts)}</span>
@@ -288,7 +288,7 @@
     // lista ostatnich logów nastroju
     const recent = state.moods.slice(0, 20);
     $("#moodList").innerHTML = recent.length
-      ? recent.map((m) => `<article class="entry-card">
+      ? recent.map((m) => `<article class="entry-card" data-item-id="${m.id}">
           <div class="entry-meta">
             <span class="entry-hash">${hashOf(m.id)}</span>
             <span class="entry-file">${fmtDate(m.ts)} ${fmtTime(m.ts)}</span>
@@ -456,7 +456,7 @@
           <span>## ${escapeHtml(sprint)}</span>
           <span class="sprint-progress">[${done}/${tasks.length} done]</span>
         </div>
-        ${tasks.map((t) => `<div class="task-item" data-status="${t.status}">
+        ${tasks.map((t) => `<div class="task-item" data-status="${t.status}" data-item-id="${t.id}">
           <button class="task-check" data-id="${t.id}" aria-label="Zmień status">${STATUS_MARK[t.status]}</button>
           <span class="task-text">${escapeHtml(t.text)}</span>
           <span class="task-status">${t.status}</span>
@@ -653,7 +653,7 @@
 
   function renderVoice() {
     $("#voiceList").innerHTML = state.voice.length
-      ? state.voice.map((v) => `<article class="entry-card voice-card">
+      ? state.voice.map((v) => `<article class="entry-card voice-card" data-item-id="${v.id}">
           <div class="entry-meta">
             <span class="entry-hash">${hashOf(v.id)}</span>
             <span class="entry-file">${fmtDate(v.ts)}_${fmtTime(v.ts).replace(":", "-")}.webm</span>
@@ -677,17 +677,69 @@
     );
   }
 
-  /* ═══════════════ dashboard ═══════════════ */
-  function renderDashboard() {
-    // statystyki
-    const todayK = dayKey(Date.now());
-    const todayCount = [...state.entries, ...state.moods, ...state.notes, ...state.tasks, ...state.voice]
-      .filter((x) => dayKey(x.ts) === todayK).length;
+  /* ═══════════════ dashboard / welcome ═══════════════ */
+  const KIND_VIEW = { entry: "entries", mood: "mood", note: "notes", task: "tasks", voice: "voice" };
 
-    // streak: kolejne dni z jakąkolwiek aktywnością
-    const activeDays = new Set(
-      [...state.entries, ...state.moods, ...state.notes, ...state.tasks, ...state.voice].map((x) => dayKey(x.ts))
-    );
+  // przejście do konkretnego elementu w sekcji + podświetlenie
+  function openItem(kind, id) {
+    const view = KIND_VIEW[kind];
+    if (kind === "note") activeNoteId = id;
+    if (kind === "entry") activeTagFilter = null;
+    showView(view);
+    if (kind === "note") return; // notatka otwiera się w edytorze
+    setTimeout(() => {
+      const el = document.querySelector(`.view[data-view="${view}"] [data-item-id="${id}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("flash");
+        setTimeout(() => el.classList.remove("flash"), 1900);
+      }
+    }, 90);
+  }
+
+  // szybkie akcje: skok do sekcji + fokus na właściwym polu
+  $$(".qa-btn").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      const qa = btn.dataset.qa;
+      const focusMap = {
+        entry: ["entries", "#entryBody"],
+        mood: ["mood", "#moodScale .mood-btn"],
+        task: ["tasks", "#taskText"],
+        voice: ["voice", "#recBtn"],
+      };
+      const [view, sel] = focusMap[qa];
+      showView(view);
+      setTimeout(() => { const el = $(sel); if (el) el.focus(); }, 90);
+    })
+  );
+
+  $("#logoHome").addEventListener("click", () => showView("dashboard"));
+
+  function startOfWeek() {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // poniedziałek
+    return d.getTime();
+  }
+
+  function fmtRecentTime(ts) {
+    const todayK = dayKey(Date.now());
+    const k = dayKey(ts);
+    if (k === todayK) return fmtTime(ts);
+    return `${k.slice(5)} ${fmtTime(ts)}`;
+  }
+
+  function renderDashboard() {
+    const now = new Date();
+    const h = now.getHours();
+    const title = h < 5 ? "nocna sesja" : h < 12 ? "dzień dobry" : h < 18 ? "witaj z powrotem" : "dobry wieczór";
+    $("#helloTitle").innerHTML = `${title}<span class="cursor" aria-hidden="true">_</span>`;
+
+    const all = [...state.entries, ...state.moods, ...state.notes, ...state.tasks, ...state.voice];
+    const todayK = dayKey(Date.now());
+    const todayCount = all.filter((x) => dayKey(x.ts) === todayK).length;
+
+    const activeDays = new Set(all.map((x) => dayKey(x.ts)));
     let streak = 0;
     const d = new Date();
     while (activeDays.has(dayKey(d.getTime()))) {
@@ -695,46 +747,79 @@
       d.setDate(d.getDate() - 1);
     }
 
-    const openTasks = state.tasks.filter((t) => t.status !== "done").length;
+    const days = ["niedziela", "poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota"];
+    const dniWord = streak === 1 ? "dzień" : "dni";
+    $("#helloLine").textContent =
+      `// jest ${fmtTime(now.getTime())}, ${days[now.getDay()]} · streak: ${streak} ${dniWord} 🔥 · commits_today: ${todayCount}`;
 
-    $("#dashStats").innerHTML = `
-      <div class="stat-card"><div class="stat-value">${todayCount}</div><div class="stat-label">commits_today</div></div>
-      <div class="stat-card"><div class="stat-value">${streak}</div><div class="stat-label">day_streak 🔥</div></div>
-      <div class="stat-card"><div class="stat-value">${state.entries.length}</div><div class="stat-label">total_entries</div></div>
-      <div class="stat-card"><div class="stat-value">${openTasks}</div><div class="stat-label">tasks_open</div></div>`;
+    /* ── kafelki sekcji ── */
+    const weekStart = startOfWeek();
+    const weekEntries = state.entries.filter((e) => e.ts >= weekStart).length;
+    const lastEntry = state.entries[0];
+    const lastMood = state.moods[0];
+    const moodTrend = state.moods.slice(0, 7).reverse();
+    const lastNote = state.notes.slice().sort((a, b) => (b.updated || b.ts) - (a.updated || a.ts))[0];
+    const doneTasks = state.tasks.filter((t) => t.status === "done").length;
+    const lastVoice = state.voice[0];
 
-    // połączony log
+    const spark = moodTrend.length
+      ? `<span class="mood-spark" aria-hidden="true">${moodTrend
+          .map((m) => `<span style="height:${m.level * 20}%;background:var(--mood-${m.level})"></span>`)
+          .join("")}</span>`
+      : `<span class="tile-sub">// brak trendu</span>`;
+
+    $("#dashTiles").innerHTML = `
+      <button class="tile" data-tile="entries">
+        <span class="tile-head"><span>entries/</span><span class="tile-arrow">→</span></span>
+        <span class="tile-stat">${weekEntries} <span class="tile-unit">w tym tygodniu</span></span>
+        <span class="tile-sub">${lastEntry ? "ostatni: „" + escapeHtml(lastEntry.body.split("\n")[0].slice(0, 60)) + "”" : "// brak wpisów — dodaj pierwszy log"}</span>
+      </button>
+      <button class="tile" data-tile="mood">
+        <span class="tile-head"><span>mood.log</span><span class="tile-arrow">→</span></span>
+        <span class="tile-stat">${lastMood ? "▰".repeat(lastMood.level) + "▱".repeat(5 - lastMood.level) + ` <span class="tile-unit">${lastMood.level}/5</span>` : "—"}</span>
+        ${spark}
+      </button>
+      <button class="tile" data-tile="notes">
+        <span class="tile-head"><span>notes/</span><span class="tile-arrow">→</span></span>
+        <span class="tile-stat">${state.notes.length} <span class="tile-unit">${state.notes.length === 1 ? "plik" : "plików"}</span></span>
+        <span class="tile-sub">${lastNote ? escapeHtml(lastNote.title) + ".md" : "// pusto — utwórz plik"}</span>
+      </button>
+      <button class="tile" data-tile="tasks">
+        <span class="tile-head"><span>tasks.todo</span><span class="tile-arrow">→</span></span>
+        <span class="tile-stat">${doneTasks}/${state.tasks.length} <span class="tile-unit">done</span></span>
+        <span class="tile-bar" aria-hidden="true"><span class="tile-bar-fill" style="width:${state.tasks.length ? Math.round((doneTasks / state.tasks.length) * 100) : 0}%"></span></span>
+      </button>
+      <button class="tile" data-tile="voice">
+        <span class="tile-head"><span>voice/</span><span class="tile-arrow">→</span></span>
+        <span class="tile-stat">${state.voice.length} <span class="tile-unit">${state.voice.length === 1 ? "nagranie" : "nagrań"}</span></span>
+        <span class="tile-sub">${lastVoice ? `ostatnie: ${pad(Math.floor(lastVoice.duration / 60))}:${pad(lastVoice.duration % 60)}` : "// cisza w eterze"}</span>
+      </button>`;
+
+    $$("#dashTiles .tile").forEach((t) =>
+      t.addEventListener("click", () => showView(t.dataset.tile))
+    );
+
+    /* ── ostatnia aktywność ── */
     const items = [
       ...state.entries.map((e) => ({ ts: e.ts, kind: "entry", id: e.id, msg: e.body.split("\n")[0] })),
       ...state.moods.map((m) => ({ ts: m.ts, kind: "mood", id: m.id, msg: `nastrój ${m.level}/5${m.note ? " — " + m.note : ""}` })),
       ...state.notes.map((n) => ({ ts: n.updated || n.ts, kind: "note", id: n.id, msg: n.title + ".md" })),
       ...state.tasks.map((t) => ({ ts: t.ts, kind: "task", id: t.id, msg: `${STATUS_MARK[t.status]} ${t.text}` })),
       ...state.voice.map((v) => ({ ts: v.ts, kind: "voice", id: v.id, msg: v.transcript ? v.transcript.slice(0, 80) : `nagranie ${v.duration}s` })),
-    ].sort((a, b) => b.ts - a.ts).slice(0, 60);
+    ].sort((a, b) => b.ts - a.ts).slice(0, 6);
 
-    if (!items.length) {
-      $("#commitLog").innerHTML = `<div class="empty-state" style="margin-left:-22px">// brak wpisów dzisiaj — dodaj pierwszy log</div>`;
-      return;
-    }
-
-    let html = "";
-    let lastDay = null;
-    for (const it of items) {
-      const day = dayKey(it.ts);
-      if (day !== lastDay) {
-        html += `<div class="day-sep">── ${day} ──</div>`;
-        lastDay = day;
-      }
-      html += `<div class="log-item" data-kind="${it.kind}">
-        <div class="log-line">
+    $("#recentList").innerHTML = items.length
+      ? items.map((it) => `<button class="recent-item" data-kind="${it.kind}" data-id="${it.id}">
           <span class="entry-hash">${hashOf(it.id)}</span>
-          <span class="log-kind">${it.kind}</span>
-          <span class="log-msg">${escapeHtml(it.msg)}</span>
-          <span class="log-date">${fmtTime(it.ts)}</span>
-        </div>
-      </div>`;
-    }
-    $("#commitLog").innerHTML = html;
+          <span class="recent-chip">${it.kind}</span>
+          <span class="recent-msg">${escapeHtml(it.msg)}</span>
+          <span class="recent-time">${fmtRecentTime(it.ts)}</span>
+        </button>`).join("")
+      : `<div class="empty-state">// brak aktywności — zacznij od pierwszego commita</div>`;
+
+    $$("#recentList .recent-item").forEach((el) =>
+      el.addEventListener("click", () => openItem(el.dataset.kind, el.dataset.id))
+    );
   }
 
   /* ── router renderowania ── */

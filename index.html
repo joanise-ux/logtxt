@@ -18,11 +18,11 @@
 
     <!-- ░░ Sidebar / file explorer ░░ -->
     <aside class="sidebar" id="sidebar">
-      <div class="sidebar-head">
+      <button class="sidebar-head" id="logoHome" aria-label="Wróć do dashboardu">
         <span class="logo-mark" aria-hidden="true">▍</span>
         <span class="logo-name">log.txt</span>
         <span class="logo-comment">// dziennik</span>
-      </div>
+      </button>
 
       <nav class="nav" aria-label="Sekcje">
         <button class="nav-item active" data-view="dashboard">
@@ -80,14 +80,26 @@
 
       <div class="views" id="views">
 
-        <!-- ═══ dashboard ═══ -->
+        <!-- ═══ dashboard / welcome ═══ -->
         <section class="view active" data-view="dashboard">
-          <div class="view-head">
-            <h1 class="mono">git log <span class="dim">--all --oneline</span></h1>
-            <p class="view-sub">// chronologiczny przegląd twojej aktywności</p>
+          <div class="dash-hello">
+            <h1 class="mono" id="helloTitle">witaj z powrotem<span class="cursor" aria-hidden="true">_</span></h1>
+            <p class="view-sub" id="helloLine"></p>
           </div>
-          <div class="dash-stats" id="dashStats"></div>
-          <div class="commit-log" id="commitLog"></div>
+
+          <div class="quick-actions mono" aria-label="Szybkie akcje">
+            <button class="qa-btn" data-qa="entry"><span class="qa-key">+</span> nowy wpis</button>
+            <button class="qa-btn" data-qa="mood"><span class="qa-key">+</span> zaznacz nastrój</button>
+            <button class="qa-btn" data-qa="task"><span class="qa-key">+</span> nowe zadanie</button>
+            <button class="qa-btn" data-qa="voice"><span class="qa-key qa-rec">●</span> nagraj notatkę</button>
+          </div>
+
+          <div class="dash-tiles" id="dashTiles"></div>
+
+          <div class="panel recent-panel">
+            <div class="panel-title mono"><span class="dim">$</span> tail -n 6 recent_activity.log</div>
+            <div class="recent-list" id="recentList"></div>
+          </div>
         </section>
 
         <!-- ═══ entries/ ═══ -->
