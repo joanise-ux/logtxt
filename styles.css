@@ -476,27 +476,46 @@ textarea:focus, input:focus {
 .mood-cell.l4 { background: var(--mood-4); }
 .mood-cell.l5 { background: var(--mood-5); }
 
-.mood-graph-wrap { overflow-x: auto; padding-bottom: 6px; }
+.mood-graph-wrap { padding-bottom: 4px; }
+.mood-dow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: clamp(4px, 1.4vw, 12px);
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.mood-dow span { text-align: center; }
 .mood-graph {
   display: grid;
-  grid-template-rows: repeat(7, 13px);
-  grid-auto-flow: column;
-  grid-auto-columns: 13px;
-  gap: 3px;
-  width: max-content;
+  grid-template-columns: repeat(7, 1fr);
+  gap: clamp(4px, 1.4vw, 12px);
 }
 .mood-day {
-  width: 13px; height: 13px;
-  border-radius: 3px;
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 14%;
   background: var(--bg-raised);
   border: 1px solid var(--border-soft);
+  transition: background 0.35s var(--ease), border-color 0.35s var(--ease);
 }
+.mood-day .d {
+  position: absolute;
+  top: 9%; left: 11%;
+  font-family: var(--font-mono);
+  font-size: clamp(9px, 1.5vw, 13px);
+  line-height: 1;
+  color: var(--text-faint);
+}
+[data-theme="dark"] .mood-day[data-level] .d { color: rgba(228, 232, 239, 0.78); }
+[data-theme="dark"] .mood-day[data-level="5"] .d { color: rgba(13, 15, 18, 0.65); }
+[data-theme="light"] .mood-day[data-level] .d { color: rgba(45, 58, 71, 0.65); }
 .mood-day[data-level="1"] { background: var(--mood-1); border-color: transparent; }
 .mood-day[data-level="2"] { background: var(--mood-2); border-color: transparent; }
 .mood-day[data-level="3"] { background: var(--mood-3); border-color: transparent; }
 .mood-day[data-level="4"] { background: var(--mood-4); border-color: transparent; }
 .mood-day[data-level="5"] { background: var(--mood-5); border-color: transparent; }
-.mood-day.today { outline: 1px solid var(--accent); outline-offset: 1px; }
+.mood-day.today { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .mood-range { display: inline-flex; gap: 4px; margin-left: auto; }
 .range-btn {

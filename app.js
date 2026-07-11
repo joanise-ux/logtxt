@@ -331,7 +331,7 @@
   });
 
   function renderMood() {
-    // graf: ostatnie N dni (28/45/90), kolumny = tygodnie, wiersze = pon..nd
+    // graf: ostatnie N dni (28/45/90), układ kalendarza — kolumny = pon..nd, wiersze = tygodnie
     const byDay = {};
     for (const m of state.moods) {
       const k = dayKey(m.ts);
@@ -360,13 +360,10 @@
       const k = dayKey(d.getTime());
       const inRange = d >= rangeStart && d <= today;
       const level = inRange ? byDay[k] : undefined;
-      cells += `<span class="mood-day ${k === todayKey ? "today" : ""}" ${level ? `data-level="${level}"` : ""} title="${inRange ? `${k}${level ? ` · nastrój ${level}/5` : ""}` : ""}" style="${!inRange ? "visibility:hidden" : ""}"></span>`;
+      cells += `<span class="mood-day ${k === todayKey ? "today" : ""}" ${level ? `data-level="${level}"` : ""} title="${inRange ? `${k}${level ? ` · nastrój ${level}/5` : ""}` : ""}" style="${!inRange ? "visibility:hidden" : ""}">${inRange ? `<span class="d">${d.getDate()}</span>` : ""}</span>`;
       d.setDate(d.getDate() + 1);
     }
     $("#moodGraph").innerHTML = cells;
-    // na wąskich ekranach graf się przewija — pokaż od razu ostatnie tygodnie
-    const wrap = $(".mood-graph-wrap");
-    wrap.scrollLeft = wrap.scrollWidth;
 
     // lista ostatnich logów nastroju
     const recent = state.moods.slice(0, 20);
