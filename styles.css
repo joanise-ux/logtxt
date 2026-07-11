@@ -498,6 +498,23 @@ textarea:focus, input:focus {
 .mood-day[data-level="5"] { background: var(--mood-5); border-color: transparent; }
 .mood-day.today { outline: 1px solid var(--accent); outline-offset: 1px; }
 
+.mood-range { display: inline-flex; gap: 4px; margin-left: auto; }
+.range-btn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--text-faint);
+  transition: all 0.2s var(--ease);
+}
+.range-btn:hover { color: var(--accent); border-color: var(--accent); }
+.range-btn.active {
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
 .mood-legend {
   display: flex; align-items: center; gap: 5px;
   margin-top: 12px;
@@ -720,6 +737,39 @@ textarea:focus, input:focus {
   max-width: 90vw;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ═══ pasek cofania usunięcia ═══ */
+.undo-bar {
+  position: fixed;
+  bottom: 26px; left: 50%;
+  transform: translate(-50%, 24px);
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 11px 18px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
+  z-index: 110;
+  max-width: 92vw;
+  overflow: hidden;
+}
+.undo-bar.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.undo-msg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.undo-title { color: var(--accent-warn); }
+.undo-btn { color: var(--accent); white-space: nowrap; }
+.undo-btn:hover { text-decoration: underline; text-shadow: var(--glow); }
+.undo-count { font-size: 11px; min-width: 3ch; text-align: right; }
+.undo-progress {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: 3px;
+  background: var(--bg-input);
+}
+.undo-progress-fill { display: block; height: 100%; width: 100%; background: var(--accent); }
 
 /* ═══ scrollbar ═══ */
 ::-webkit-scrollbar { width: 10px; height: 10px; }

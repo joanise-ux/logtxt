@@ -147,7 +147,14 @@
           </form>
 
           <div class="panel">
-            <div class="panel-title mono"><span class="dim">$</span> mood --graph <span class="dim">// ostatnie 26 tygodni</span></div>
+            <div class="panel-title mono">
+              <span class="dim">$</span> mood --graph <span class="dim" id="moodRangeLabel">// ostatnie 28 dni</span>
+              <span class="mood-range" id="moodRange" role="group" aria-label="Zakres grafu">
+                <button type="button" class="range-btn" data-days="28">28d</button>
+                <button type="button" class="range-btn" data-days="45">45d</button>
+                <button type="button" class="range-btn" data-days="90">90d</button>
+              </span>
+            </div>
             <div class="mood-graph-wrap">
               <div class="mood-graph" id="moodGraph"></div>
             </div>
@@ -241,6 +248,14 @@
   </div>
 
   <div class="toast mono" id="toast" role="status" aria-live="polite"></div>
+
+  <div class="undo-bar mono" id="undoBar" role="status" aria-live="polite">
+    <span class="undo-msg"><span class="dim">//</span> usunięto <span class="undo-title" id="undoTitle"></span> —</span>
+    <button type="button" class="undo-btn" id="undoBtn">[cofnij]</button>
+    <span class="undo-count dim" id="undoCount">15s</span>
+    <span class="undo-progress" aria-hidden="true"><span class="undo-progress-fill" id="undoFill"></span></span>
+  </div>
+
   <div class="sidebar-scrim" id="scrim"></div>
 
   <script src="app.js"></script>
