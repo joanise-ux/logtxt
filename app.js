@@ -1,0 +1,752 @@
+/* ═══════════════════════════════════════════════════════════════
+   log.txt — dziennik w stylu terminala
+   dane trzymane lokalnie (localStorage), zero backendu
+   ═══════════════════════════════════════════════════════════════ */
+
+(() => {
+  "use strict";
+
+  /* ── stan ── */
+  const STORAGE_KEY = "logtxt.state.v1";
+  const THEME_KEY = "logtxt.theme";
+
+  const defaultState = { entries: [], moods: [], notes: [], tasks: [], voice: [] };
+
+  let state = loadState();
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return structuredClone(defaultState);
+      return Object.assign(structuredClone(defaultState), JSON.parse(raw));
+    } catch {
+      return structuredClone(defaultState);
+    }
+  }
+
+  function saveState() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      setStorageStatus("local: ok");
+      return true;
+    } catch {
+      setStorageStatus("local: FULL", true);
+      toast("⚠ storage full — usuń stare nagrania");
+      return false;
+    }
+  }
+
+  function setStorageStatus(text, warn) {
+    const el = document.getElementById("storageStatus");
+    el.textContent = text;
+    el.style.color = warn ? "var(--accent-warn)" : "";
+  }
+
+  /* ── utilsy ── */
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => [...document.querySelectorAll(sel)];
+
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+  // pseudo-hash w stylu gita, deterministyczny dla id
+  function hashOf(id) {
+    let h = 0;
+    for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    return h.toString(16).padStart(7, "0").slice(0, 7);
+  }
+
+  const pad = (n) => String(n).padStart(2, "0");
+
+  function fmtFile(ts) {
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}.md`;
+  }
+  function fmtDate(ts) {
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+  function fmtTime(ts) {
+    const d = new Date(ts);
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  function dayKey(ts) { return fmtDate(ts); }
+
+  function isoWeek(d) {
+    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const day = t.getUTCDay() || 7;
+    t.setUTCDate(t.getUTCDate() + 4 - day);
+    const start = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+    return Math.ceil(((t - start) / 86400000 + 1) / 7);
+  }
+  function currentSprint() {
+    const now = new Date();
+    return `sprint_${now.getFullYear()}-W${pad(isoWeek(now))}`;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function toast(msg) {
+    const el = $("#toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => el.classList.remove("show"), 2400);
+  }
+
+  /* ── motyw ── */
+  const themeToggle = $("#themeToggle");
+  function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    themeToggle.querySelector(".theme-label").textContent =
+      theme === "dark" ? "light_mode" : "dark_mode";
+    localStorage.setItem(THEME_KEY, theme);
+  }
+  applyTheme(localStorage.getItem(THEME_KEY) || "dark");
+  themeToggle.addEventListener("click", () => {
+    applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+  });
+
+  /* ── nawigacja ── */
+  let activeView = "dashboard";
+  const sidebar = $("#sidebar");
+  const scrim = $("#scrim");
+
+  function showView(name) {
+    activeView = name;
+    $$(".nav-item").forEach((b) => b.classList.toggle("active", b.dataset.view === name));
+    $$(".view").forEach((v) => v.classList.toggle("active", v.dataset.view === name));
+    $("#crumbView").textContent = name === "dashboard" ? "dashboard"
+      : name === "mood" ? "mood.log"
+      : name === "tasks" ? "tasks.todo"
+      : name + "/";
+    closeSidebar();
+    render(name);
+  }
+
+  $$(".nav-item").forEach((btn) =>
+    btn.addEventListener("click", () => showView(btn.dataset.view))
+  );
+
+  $("#menuBtn").addEventListener("click", () => {
+    sidebar.classList.add("open");
+    scrim.classList.add("show");
+  });
+  function closeSidebar() {
+    sidebar.classList.remove("open");
+    scrim.classList.remove("show");
+  }
+  scrim.addEventListener("click", closeSidebar);
+
+  /* ── liczniki w nav ── */
+  function renderCounts() {
+    const counts = {
+      entries: state.entries.length,
+      notes: state.notes.length,
+      tasks: state.tasks.filter((t) => t.status !== "done").length,
+      voice: state.voice.length,
+    };
+    $$(".nav-count").forEach((el) => {
+      const n = counts[el.dataset.count];
+      el.textContent = n ? n : "";
+    });
+  }
+
+  /* ── data w topbarze ── */
+  {
+    const now = new Date();
+    const days = ["nd", "pon", "wt", "śr", "czw", "pt", "sob"];
+    $("#topbarDate").textContent = `${days[now.getDay()]} ${fmtDate(now)}`;
+  }
+
+  /* ═══════════════ entries/ ═══════════════ */
+  let activeTagFilter = null;
+
+  function refreshEntryFilename() {
+    $("#entryFilename").textContent = fmtFile(Date.now());
+  }
+
+  $("#entryForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const body = $("#entryBody").value.trim();
+    if (!body) return;
+    const tags = ($("#entryTags").value.match(/#[\p{L}\p{N}_-]+/gu) || []).map((t) => t.toLowerCase());
+    state.entries.unshift({ id: uid(), ts: Date.now(), body, tags });
+    if (saveState()) {
+      $("#entryBody").value = "";
+      $("#entryTags").value = "";
+      toast("Zapisano ✓ commit successful");
+    }
+    renderEntries();
+    renderCounts();
+  });
+
+  function renderEntries() {
+    refreshEntryFilename();
+
+    // filtr tagów
+    const allTags = [...new Set(state.entries.flatMap((e) => e.tags))].sort();
+    if (activeTagFilter && !allTags.includes(activeTagFilter)) activeTagFilter = null;
+    $("#tagFilter").innerHTML = allTags
+      .map((t) => `<button class="tag ${t === activeTagFilter ? "active" : ""}" data-tag="${escapeHtml(t)}">${escapeHtml(t)}</button>`)
+      .join("");
+    $$("#tagFilter .tag").forEach((el) =>
+      el.addEventListener("click", () => {
+        activeTagFilter = activeTagFilter === el.dataset.tag ? null : el.dataset.tag;
+        renderEntries();
+      })
+    );
+
+    const list = activeTagFilter
+      ? state.entries.filter((e) => e.tags.includes(activeTagFilter))
+      : state.entries;
+
+    $("#entryList").innerHTML = list.length
+      ? list.map(entryCard).join("")
+      : `<div class="empty-state">// brak wpisów${activeTagFilter ? ` z tagiem ${escapeHtml(activeTagFilter)}` : " dzisiaj"} — dodaj pierwszy log</div>`;
+
+    $$("#entryList .entry-del").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        state.entries = state.entries.filter((e) => e.id !== btn.dataset.id);
+        saveState();
+        renderEntries();
+        renderCounts();
+        toast("rm ✓ wpis usunięty");
+      })
+    );
+  }
+
+  function entryCard(e) {
+    return `<article class="entry-card">
+      <div class="entry-meta">
+        <span class="entry-hash">${hashOf(e.id)}</span>
+        <span class="entry-file">${fmtFile(e.ts)}</span>
+        <button class="entry-del" data-id="${e.id}">rm</button>
+      </div>
+      <div class="entry-body">${escapeHtml(e.body)}</div>
+      ${e.tags.length ? `<div class="entry-tags">${e.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
+    </article>`;
+  }
+
+  /* ═══════════════ mood.log ═══════════════ */
+  let selectedMood = null;
+
+  $$("#moodScale .mood-btn").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      selectedMood = Number(btn.dataset.level);
+      $$("#moodScale .mood-btn").forEach((b) => b.classList.toggle("selected", b === btn));
+      $("#moodSubmit").disabled = false;
+    })
+  );
+
+  $("#moodForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (!selectedMood) return;
+    state.moods.unshift({ id: uid(), ts: Date.now(), level: selectedMood, note: $("#moodNote").value.trim() });
+    if (saveState()) {
+      $("#moodNote").value = "";
+      selectedMood = null;
+      $$("#moodScale .mood-btn").forEach((b) => b.classList.remove("selected"));
+      $("#moodSubmit").disabled = true;
+      toast("Zapisano ✓ mood logged");
+    }
+    renderMood();
+  });
+
+  function renderMood() {
+    // graf: 26 tygodni wstecz, kolumny = tygodnie, wiersze = pon..nd
+    const byDay = {};
+    for (const m of state.moods) {
+      const k = dayKey(m.ts);
+      if (!byDay[k]) byDay[k] = m.level; // najnowszy wpis dnia wygrywa (lista jest od najnowszych)
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayKey = dayKey(today.getTime());
+
+    // znajdź poniedziałek 25 tygodni temu
+    const start = new Date(today);
+    const dow = (start.getDay() + 6) % 7; // 0 = poniedziałek
+    start.setDate(start.getDate() - dow - 25 * 7);
+
+    let cells = "";
+    const d = new Date(start);
+    while (d <= today || (d.getDay() + 6) % 7 !== 0) {
+      if (d > today && (d.getDay() + 6) % 7 === 0) break;
+      const k = dayKey(d.getTime());
+      const level = d <= today ? byDay[k] : undefined;
+      cells += `<span class="mood-day ${k === todayKey ? "today" : ""}" ${level ? `data-level="${level}"` : ""} title="${k}${level ? ` · nastrój ${level}/5` : ""}" style="${d > today ? "visibility:hidden" : ""}"></span>`;
+      d.setDate(d.getDate() + 1);
+    }
+    $("#moodGraph").innerHTML = cells;
+
+    // lista ostatnich logów nastroju
+    const recent = state.moods.slice(0, 20);
+    $("#moodList").innerHTML = recent.length
+      ? recent.map((m) => `<article class="entry-card">
+          <div class="entry-meta">
+            <span class="entry-hash">${hashOf(m.id)}</span>
+            <span class="entry-file">${fmtDate(m.ts)} ${fmtTime(m.ts)}</span>
+            <span class="mood-entry-level">mood: ${"▰".repeat(m.level)}${"▱".repeat(5 - m.level)} ${m.level}/5</span>
+            <button class="entry-del" data-id="${m.id}">rm</button>
+          </div>
+          ${m.note ? `<div class="entry-body">${escapeHtml(m.note)}</div>` : ""}
+        </article>`).join("")
+      : `<div class="empty-state">// brak logów nastroju — zapisz pierwszy stan</div>`;
+
+    $$("#moodList .entry-del").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        state.moods = state.moods.filter((m) => m.id !== btn.dataset.id);
+        saveState();
+        renderMood();
+        toast("rm ✓ log usunięty");
+      })
+    );
+  }
+
+  /* ═══════════════ notes/ ═══════════════ */
+  let activeNoteId = null;
+
+  $("#newNoteBtn").addEventListener("click", () => {
+    const note = { id: uid(), ts: Date.now(), updated: Date.now(), title: "nowa", body: "" };
+    state.notes.unshift(note);
+    saveState();
+    activeNoteId = note.id;
+    renderNotes();
+    renderCounts();
+    $("#noteTitle").focus();
+    $("#noteTitle").select();
+  });
+
+  $("#saveNoteBtn").addEventListener("click", () => {
+    const note = state.notes.find((n) => n.id === activeNoteId);
+    if (!note) return;
+    note.title = ($("#noteTitle").value.trim() || "bez_nazwy").replace(/\s+/g, "_");
+    note.body = $("#noteBody").value;
+    note.updated = Date.now();
+    if (saveState()) toast("Zapisano ✓ commit successful");
+    renderNotes();
+  });
+
+  $("#deleteNoteBtn").addEventListener("click", () => {
+    if (!activeNoteId) return;
+    state.notes = state.notes.filter((n) => n.id !== activeNoteId);
+    activeNoteId = null;
+    saveState();
+    renderNotes();
+    renderCounts();
+    toast("rm ✓ notatka usunięta");
+  });
+
+  $("#tabEdit").addEventListener("click", () => setNoteTab("edit"));
+  $("#tabPreview").addEventListener("click", () => setNoteTab("preview"));
+
+  function setNoteTab(tab) {
+    $("#tabEdit").classList.toggle("active", tab === "edit");
+    $("#tabPreview").classList.toggle("active", tab === "preview");
+    $("#noteBody").hidden = tab !== "edit";
+    $("#notePreview").hidden = tab !== "preview";
+    if (tab === "preview") $("#notePreview").innerHTML = renderMarkdown($("#noteBody").value);
+  }
+
+  function renderNotes() {
+    $("#noteFiles").innerHTML = state.notes.length
+      ? state.notes.map((n) => `<button class="note-file ${n.id === activeNoteId ? "active" : ""}" data-id="${n.id}">
+          <svg class="icon" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+          <span class="note-file-name">${escapeHtml(n.title)}.md</span>
+        </button>`).join("")
+      : `<div class="empty-state" style="padding:20px 10px">// pusto — utwórz plik</div>`;
+
+    $$("#noteFiles .note-file").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        activeNoteId = btn.dataset.id;
+        renderNotes();
+      })
+    );
+
+    const note = state.notes.find((n) => n.id === activeNoteId);
+    $("#noteEditor").hidden = !note;
+    if (note) {
+      $("#noteTitle").value = note.title;
+      $("#noteBody").value = note.body;
+      setNoteTab("edit");
+    }
+  }
+
+  /* mini-markdown → HTML (bez zewnętrznych bibliotek) */
+  function renderMarkdown(src) {
+    const lines = escapeHtml(src).split("\n");
+    let html = "";
+    let inList = false;
+    const closeList = () => { if (inList) { html += "</ul>"; inList = false; } };
+
+    for (const line of lines) {
+      let m;
+      if ((m = line.match(/^(#{1,3})\s+(.*)/))) {
+        closeList();
+        const lvl = m[1].length;
+        html += `<h${lvl}>${inline(m[2])}</h${lvl}>`;
+      } else if ((m = line.match(/^-\s+\[( |x)\]\s+(.*)/i))) {
+        if (!inList) { html += "<ul>"; inList = true; }
+        const done = m[1].toLowerCase() === "x";
+        html += `<li class="md-check"><span class="box">- [${done ? "x" : "&nbsp;"}]</span> ${done ? "<s>" : ""}${inline(m[2])}${done ? "</s>" : ""}</li>`;
+      } else if ((m = line.match(/^[-*]\s+(.*)/))) {
+        if (!inList) { html += "<ul>"; inList = true; }
+        html += `<li>${inline(m[1])}</li>`;
+      } else if ((m = line.match(/^&gt;\s?(.*)/))) {
+        closeList();
+        html += `<blockquote>${inline(m[1])}</blockquote>`;
+      } else if (line.trim() === "") {
+        closeList();
+      } else {
+        closeList();
+        html += `<p>${inline(line)}</p>`;
+      }
+    }
+    closeList();
+    return html || `<p class="dim">// pusty plik</p>`;
+
+    function inline(s) {
+      return s
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*([^*]+)\*/g, "<em>$1</em>");
+    }
+  }
+
+  /* ═══════════════ tasks.todo ═══════════════ */
+  const STATUS_NEXT = { pending: "in_progress", in_progress: "done", done: "pending" };
+  const STATUS_MARK = { pending: "- [ ]", in_progress: "- [~]", done: "- [x]" };
+
+  $("#taskForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = $("#taskText").value.trim();
+    if (!text) return;
+    const sprint = $("#taskSprint").value.trim() || currentSprint();
+    state.tasks.unshift({ id: uid(), ts: Date.now(), text, status: "pending", sprint });
+    if (saveState()) {
+      $("#taskText").value = "";
+      toast("Zapisano ✓ task added → pending");
+    }
+    renderTasks();
+    renderCounts();
+  });
+
+  function renderTasks() {
+    $("#taskSprint").placeholder = currentSprint();
+
+    const sprints = [...new Set(state.tasks.map((t) => t.sprint))];
+    $("#sprintList").innerHTML = sprints.map((s) => `<option value="${escapeHtml(s)}">`).join("");
+
+    if (!state.tasks.length) {
+      $("#sprintGroups").innerHTML = `<div class="empty-state">// brak zadań — backlog czysty</div>`;
+      return;
+    }
+
+    $("#sprintGroups").innerHTML = sprints.map((sprint) => {
+      const tasks = state.tasks.filter((t) => t.sprint === sprint);
+      const done = tasks.filter((t) => t.status === "done").length;
+      return `<div class="sprint-group">
+        <div class="sprint-head">
+          <span>## ${escapeHtml(sprint)}</span>
+          <span class="sprint-progress">[${done}/${tasks.length} done]</span>
+        </div>
+        ${tasks.map((t) => `<div class="task-item" data-status="${t.status}">
+          <button class="task-check" data-id="${t.id}" aria-label="Zmień status">${STATUS_MARK[t.status]}</button>
+          <span class="task-text">${escapeHtml(t.text)}</span>
+          <span class="task-status">${t.status}</span>
+          <button class="task-del" data-id="${t.id}">rm</button>
+        </div>`).join("")}
+      </div>`;
+    }).join("");
+
+    $$("#sprintGroups .task-check").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const t = state.tasks.find((x) => x.id === btn.dataset.id);
+        t.status = STATUS_NEXT[t.status];
+        saveState();
+        renderTasks();
+        renderCounts();
+        if (t.status === "done") toast("✓ done — dobra robota");
+      })
+    );
+    $$("#sprintGroups .task-del").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        state.tasks = state.tasks.filter((x) => x.id !== btn.dataset.id);
+        saveState();
+        renderTasks();
+        renderCounts();
+        toast("rm ✓ zadanie usunięte");
+      })
+    );
+  }
+
+  /* ═══════════════ voice/ ═══════════════ */
+  const recBtn = $("#recBtn");
+  const recStatus = $("#recStatus");
+  const recTimer = $("#recTimer");
+  const canvas = $("#waveCanvas");
+  const ctx2d = canvas.getContext("2d");
+
+  let mediaRecorder = null;
+  let audioCtx = null;
+  let analyser = null;
+  let rafId = null;
+  let recStart = 0;
+  let timerId = null;
+  let peaks = [];         // próbki amplitudy do zapisu (ASCII-waveform)
+  let recognition = null;
+  let transcriptText = "";
+
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  $("#transcriptHint").textContent = SpeechRec ? "// auto-transkrypcja: on" : "// transkrypcja niedostępna w tej przeglądarce";
+
+  function resizeCanvas() {
+    canvas.width = canvas.clientWidth * (window.devicePixelRatio || 1);
+    canvas.height = 80 * (window.devicePixelRatio || 1);
+  }
+  window.addEventListener("resize", resizeCanvas);
+
+  function drawIdle() {
+    resizeCanvas();
+    const { width: w, height: h } = canvas;
+    ctx2d.clearRect(0, 0, w, h);
+    ctx2d.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--border").trim();
+    ctx2d.lineWidth = 1.5;
+    ctx2d.beginPath();
+    ctx2d.moveTo(0, h / 2);
+    ctx2d.lineTo(w, h / 2);
+    ctx2d.stroke();
+  }
+
+  function drawLive() {
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getByteTimeDomainData(data);
+    const { width: w, height: h } = canvas;
+    const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+
+    ctx2d.clearRect(0, 0, w, h);
+    ctx2d.strokeStyle = accent;
+    ctx2d.lineWidth = 2;
+    ctx2d.beginPath();
+    const step = w / data.length;
+    for (let i = 0; i < data.length; i++) {
+      const y = (data[i] / 255) * h;
+      i === 0 ? ctx2d.moveTo(0, y) : ctx2d.lineTo(i * step, y);
+    }
+    ctx2d.stroke();
+
+    // amplituda do zapisanego waveformu
+    let max = 0;
+    for (const v of data) max = Math.max(max, Math.abs(v - 128));
+    if (peaks.length < 4000) peaks.push(max / 128);
+
+    rafId = requestAnimationFrame(drawLive);
+  }
+
+  recBtn.addEventListener("click", async () => {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
+      return;
+    }
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      recStatus.textContent = "// błąd: brak dostępu do mikrofonu";
+      return;
+    }
+
+    peaks = [];
+    transcriptText = "";
+    const chunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaStreamSource(stream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    source.connect(analyser);
+
+    if (SpeechRec) {
+      recognition = new SpeechRec();
+      recognition.lang = "pl-PL";
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.onresult = (e) => {
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) transcriptText += e.results[i][0].transcript + " ";
+        }
+      };
+      try { recognition.start(); } catch { /* już działa lub brak wsparcia */ }
+    }
+
+    mediaRecorder.onstop = async () => {
+      cancelAnimationFrame(rafId);
+      clearInterval(timerId);
+      stream.getTracks().forEach((t) => t.stop());
+      audioCtx.close();
+      if (recognition) { try { recognition.stop(); } catch {} }
+
+      recBtn.classList.remove("recording");
+      recBtn.innerHTML = `<span class="rec-dot" aria-hidden="true"></span> record`;
+      recStatus.textContent = "// zapisywanie...";
+
+      const blob = new Blob(chunks, { type: mediaRecorder.mimeType || "audio/webm" });
+      const duration = Math.round((Date.now() - recStart) / 1000);
+
+      // downsample peaks do ~64 słupków
+      const bars = 64;
+      const sampled = [];
+      for (let i = 0; i < bars; i++) {
+        const s = Math.floor((i / bars) * peaks.length);
+        const e = Math.floor(((i + 1) / bars) * peaks.length);
+        let mx = 0;
+        for (let j = s; j < e; j++) mx = Math.max(mx, peaks[j] || 0);
+        sampled.push(Math.min(1, mx * 1.5));
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        // małe opóźnienie na końcowe wyniki rozpoznawania mowy
+        setTimeout(() => {
+          state.voice.unshift({
+            id: uid(), ts: Date.now(), duration,
+            dataUrl: reader.result,
+            peaks: sampled,
+            transcript: transcriptText.trim(),
+          });
+          if (saveState()) toast("Zapisano ✓ voice memo committed");
+          recStatus.textContent = "// gotowy";
+          recTimer.textContent = "00:00";
+          drawIdle();
+          renderVoice();
+          renderCounts();
+        }, 400);
+      };
+      reader.readAsDataURL(blob);
+    };
+
+    mediaRecorder.start();
+    recStart = Date.now();
+    recBtn.classList.add("recording");
+    recBtn.innerHTML = `<span class="rec-dot" aria-hidden="true"></span> stop`;
+    recStatus.textContent = "// REC ● nagrywanie...";
+    timerId = setInterval(() => {
+      const s = Math.round((Date.now() - recStart) / 1000);
+      recTimer.textContent = `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
+    }, 500);
+    resizeCanvas();
+    drawLive();
+  });
+
+  const WAVE_CHARS = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
+  function asciiWave(peaks) {
+    return peaks.map((p) => WAVE_CHARS[Math.min(7, Math.floor(p * 8))]).join("");
+  }
+
+  function renderVoice() {
+    $("#voiceList").innerHTML = state.voice.length
+      ? state.voice.map((v) => `<article class="entry-card voice-card">
+          <div class="entry-meta">
+            <span class="entry-hash">${hashOf(v.id)}</span>
+            <span class="entry-file">${fmtDate(v.ts)}_${fmtTime(v.ts).replace(":", "-")}.webm</span>
+            <span class="dim">${pad(Math.floor(v.duration / 60))}:${pad(v.duration % 60)}</span>
+            <button class="entry-del" data-id="${v.id}">rm</button>
+          </div>
+          <div class="voice-wave" aria-hidden="true">${asciiWave(v.peaks || [])}</div>
+          <audio controls preload="none" src="${v.dataUrl}"></audio>
+          ${v.transcript ? `<div class="voice-transcript">${escapeHtml(v.transcript)}</div>` : ""}
+        </article>`).join("")
+      : `<div class="empty-state">// brak nagrań — naciśnij record i powiedz, co myślisz</div>`;
+
+    $$("#voiceList .entry-del").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        state.voice = state.voice.filter((v) => v.id !== btn.dataset.id);
+        saveState();
+        renderVoice();
+        renderCounts();
+        toast("rm ✓ nagranie usunięte");
+      })
+    );
+  }
+
+  /* ═══════════════ dashboard ═══════════════ */
+  function renderDashboard() {
+    // statystyki
+    const todayK = dayKey(Date.now());
+    const todayCount = [...state.entries, ...state.moods, ...state.notes, ...state.tasks, ...state.voice]
+      .filter((x) => dayKey(x.ts) === todayK).length;
+
+    // streak: kolejne dni z jakąkolwiek aktywnością
+    const activeDays = new Set(
+      [...state.entries, ...state.moods, ...state.notes, ...state.tasks, ...state.voice].map((x) => dayKey(x.ts))
+    );
+    let streak = 0;
+    const d = new Date();
+    while (activeDays.has(dayKey(d.getTime()))) {
+      streak++;
+      d.setDate(d.getDate() - 1);
+    }
+
+    const openTasks = state.tasks.filter((t) => t.status !== "done").length;
+
+    $("#dashStats").innerHTML = `
+      <div class="stat-card"><div class="stat-value">${todayCount}</div><div class="stat-label">commits_today</div></div>
+      <div class="stat-card"><div class="stat-value">${streak}</div><div class="stat-label">day_streak 🔥</div></div>
+      <div class="stat-card"><div class="stat-value">${state.entries.length}</div><div class="stat-label">total_entries</div></div>
+      <div class="stat-card"><div class="stat-value">${openTasks}</div><div class="stat-label">tasks_open</div></div>`;
+
+    // połączony log
+    const items = [
+      ...state.entries.map((e) => ({ ts: e.ts, kind: "entry", id: e.id, msg: e.body.split("\n")[0] })),
+      ...state.moods.map((m) => ({ ts: m.ts, kind: "mood", id: m.id, msg: `nastrój ${m.level}/5${m.note ? " — " + m.note : ""}` })),
+      ...state.notes.map((n) => ({ ts: n.updated || n.ts, kind: "note", id: n.id, msg: n.title + ".md" })),
+      ...state.tasks.map((t) => ({ ts: t.ts, kind: "task", id: t.id, msg: `${STATUS_MARK[t.status]} ${t.text}` })),
+      ...state.voice.map((v) => ({ ts: v.ts, kind: "voice", id: v.id, msg: v.transcript ? v.transcript.slice(0, 80) : `nagranie ${v.duration}s` })),
+    ].sort((a, b) => b.ts - a.ts).slice(0, 60);
+
+    if (!items.length) {
+      $("#commitLog").innerHTML = `<div class="empty-state" style="margin-left:-22px">// brak wpisów dzisiaj — dodaj pierwszy log</div>`;
+      return;
+    }
+
+    let html = "";
+    let lastDay = null;
+    for (const it of items) {
+      const day = dayKey(it.ts);
+      if (day !== lastDay) {
+        html += `<div class="day-sep">── ${day} ──</div>`;
+        lastDay = day;
+      }
+      html += `<div class="log-item" data-kind="${it.kind}">
+        <div class="log-line">
+          <span class="entry-hash">${hashOf(it.id)}</span>
+          <span class="log-kind">${it.kind}</span>
+          <span class="log-msg">${escapeHtml(it.msg)}</span>
+          <span class="log-date">${fmtTime(it.ts)}</span>
+        </div>
+      </div>`;
+    }
+    $("#commitLog").innerHTML = html;
+  }
+
+  /* ── router renderowania ── */
+  function render(view) {
+    if (view === "dashboard") renderDashboard();
+    else if (view === "entries") renderEntries();
+    else if (view === "mood") renderMood();
+    else if (view === "notes") renderNotes();
+    else if (view === "tasks") renderTasks();
+    else if (view === "voice") renderVoice();
+  }
+
+  /* ── start ── */
+  renderCounts();
+  render("dashboard");
+  drawIdle();
+  setInterval(refreshEntryFilename, 30000);
+})();
