@@ -38,30 +38,32 @@
   --scrim: rgba(6, 8, 10, 0.6);
 }
 
-/* ── motyw jasny: dziennik ── */
+/* ── motyw jasny: dziennik ──
+   paleta: Vanilla Cream #FFF7E6 · Blush Petal #F7C8D3 · Rosewood #B46A72
+   Sage Leaf #A8B58A · Misty Sky #A9B7C6 · Midnight Lagoon #2D3A47 */
 [data-theme="light"] {
   color-scheme: light;
-  --bg: #faf7f2;
-  --bg-panel: #fffdf9;
-  --bg-raised: #f5f0e9;
-  --bg-input: #fbf9f5;
-  --border: #e6ded4;
-  --border-soft: #efe9e0;
-  --text: #3c3833;
-  --text-dim: #8a8177;
-  --text-faint: #b3a99d;
-  --accent: #7f9a77;          /* szałwiowa zieleń */
-  --accent-2: #c98a95;        /* pudrowy róż */
-  --accent-3: #7d94ac;        /* błękit mgły */
-  --accent-warn: #c9a25e;
-  --accent-bg: rgba(168, 195, 160, 0.22);
-  --accent-2-bg: rgba(232, 180, 188, 0.25);
-  --accent-3-bg: rgba(184, 201, 217, 0.28);
+  --bg: #fff7e6;
+  --bg-panel: #fffcf4;
+  --bg-raised: #f7edd8;
+  --bg-input: #fffaf0;
+  --border: #e9dcc2;
+  --border-soft: #f2ead6;
+  --text: #2d3a47;
+  --text-dim: #5c6b7a;
+  --text-faint: #a9b7c6;
+  --accent: #79855a;          /* sage leaf, przyciemniony dla czytelności */
+  --accent-2: #b46a72;        /* rosewood */
+  --accent-3: #7d8fa3;        /* misty sky, przyciemniony */
+  --accent-warn: #c09b54;
+  --accent-bg: rgba(168, 181, 138, 0.28);
+  --accent-2-bg: rgba(247, 200, 211, 0.45);
+  --accent-3-bg: rgba(169, 183, 198, 0.30);
   --glow: none;
   --glow-2: none;
-  --shadow: 0 6px 22px rgba(90, 78, 60, 0.10);
-  --mood-1: #e8d5d8; --mood-2: #e0bcc3; --mood-3: #cfa3ad; --mood-4: #a8c3a0; --mood-5: #7f9a77;
-  --scrim: rgba(60, 50, 40, 0.35);
+  --shadow: 0 6px 22px rgba(45, 58, 71, 0.10);
+  --mood-1: #b46a72; --mood-2: #d89aa3; --mood-3: #f7c8d3; --mood-4: #c9d2ac; --mood-5: #a8b58a;
+  --scrim: rgba(45, 58, 71, 0.38);
 }
 
 /* ═══ baza ═══ */
