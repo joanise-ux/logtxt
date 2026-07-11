@@ -95,6 +95,63 @@
     toast._t = setTimeout(() => el.classList.remove("show"), 2400);
   }
 
+  /* ── cofanie usunięcia (15 s) ── */
+  const UNDO_MS = 15000;
+  let pendingUndo = null; // { collection, item, index, onRestore, timerId, intervalId }
+
+  function commitPendingDelete() {
+    // element jest już poza stanem — porzucamy kopię i chowamy pasek
+    if (!pendingUndo) return;
+    clearTimeout(pendingUndo.timerId);
+    clearInterval(pendingUndo.intervalId);
+    pendingUndo = null;
+    $("#undoBar").classList.remove("show");
+  }
+
+  // usuwa element z state[collection], dając 15 s na cofnięcie;
+  // onRemove/onRestore odświeżają widok po każdej z operacji
+  function deleteWithUndo(collection, id, label, onRemove, onRestore = onRemove) {
+    commitPendingDelete(); // poprzednie oczekujące usunięcie staje się trwałe
+    const index = state[collection].findIndex((x) => x.id === id);
+    if (index === -1) return;
+    const [item] = state[collection].splice(index, 1);
+    saveState();
+    onRemove();
+
+    $("#undoTitle").textContent = `"${label}"`;
+    const count = $("#undoCount");
+    count.textContent = `${UNDO_MS / 1000}s`;
+
+    // restart animacji paska postępu
+    const fill = $("#undoFill");
+    fill.style.transition = "none";
+    fill.style.width = "100%";
+    void fill.offsetWidth;
+    fill.style.transition = `width ${UNDO_MS}ms linear`;
+    fill.style.width = "0%";
+
+    $("#undoBar").classList.add("show");
+
+    const deadline = Date.now() + UNDO_MS;
+    pendingUndo = {
+      collection, item, index, onRestore,
+      timerId: setTimeout(commitPendingDelete, UNDO_MS),
+      intervalId: setInterval(() => {
+        count.textContent = `${Math.max(0, Math.ceil((deadline - Date.now()) / 1000))}s`;
+      }, 200),
+    };
+  }
+
+  $("#undoBtn").addEventListener("click", () => {
+    if (!pendingUndo) return;
+    const { collection, item, index, onRestore } = pendingUndo;
+    commitPendingDelete();
+    state[collection].splice(Math.min(index, state[collection].length), 0, item);
+    saveState();
+    onRestore(item);
+    toast("↩ przywrócono ✓ restore complete");
+  });
+
   /* ── motyw ── */
   const themeToggle = $("#themeToggle");
   function applyTheme(theme) {
@@ -208,11 +265,13 @@
 
     $$("#entryList .entry-del").forEach((btn) =>
       btn.addEventListener("click", () => {
-        state.entries = state.entries.filter((e) => e.id !== btn.dataset.id);
-        saveState();
-        renderEntries();
-        renderCounts();
-        toast("rm ✓ wpis usunięty");
+        const entry = state.entries.find((e) => e.id === btn.dataset.id);
+        if (!entry) return;
+        const label = entry.body.split("\n")[0].slice(0, 40) || fmtFile(entry.ts);
+        deleteWithUndo("entries", entry.id, label, () => {
+          renderEntries();
+          renderCounts();
+        });
       })
     );
   }
@@ -231,6 +290,20 @@
 
   /* ═══════════════ mood.log ═══════════════ */
   let selectedMood = null;
+
+  /* zakres grafu: 28 dni domyślnie, przełączany na 45/90 */
+  const MOOD_RANGES = [28, 45, 90];
+  const MOOD_RANGE_KEY = "logtxt.moodRange";
+  let moodRangeDays = Number(localStorage.getItem(MOOD_RANGE_KEY));
+  if (!MOOD_RANGES.includes(moodRangeDays)) moodRangeDays = 28;
+
+  $$("#moodRange .range-btn").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      moodRangeDays = Number(btn.dataset.days);
+      localStorage.setItem(MOOD_RANGE_KEY, moodRangeDays);
+      renderMood();
+    })
+  );
 
   $$("#moodScale .mood-btn").forEach((btn) =>
     btn.addEventListener("click", () => {
@@ -255,29 +328,36 @@
   });
 
   function renderMood() {
-    // graf: 26 tygodni wstecz, kolumny = tygodnie, wiersze = pon..nd
+    // graf: ostatnie N dni (28/45/90), kolumny = tygodnie, wiersze = pon..nd
     const byDay = {};
     for (const m of state.moods) {
       const k = dayKey(m.ts);
       if (!byDay[k]) byDay[k] = m.level; // najnowszy wpis dnia wygrywa (lista jest od najnowszych)
     }
 
+    $("#moodRangeLabel").textContent = `// ostatnie ${moodRangeDays} dni`;
+    $$("#moodRange .range-btn").forEach((b) =>
+      b.classList.toggle("active", Number(b.dataset.days) === moodRangeDays)
+    );
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayKey = dayKey(today.getTime());
 
-    // znajdź poniedziałek 25 tygodni temu
-    const start = new Date(today);
-    const dow = (start.getDay() + 6) % 7; // 0 = poniedziałek
-    start.setDate(start.getDate() - dow - 25 * 7);
+    // początek zakresu i poniedziałek jego tygodnia (pełne kolumny)
+    const rangeStart = new Date(today);
+    rangeStart.setDate(rangeStart.getDate() - (moodRangeDays - 1));
+    const start = new Date(rangeStart);
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
 
     let cells = "";
     const d = new Date(start);
     while (d <= today || (d.getDay() + 6) % 7 !== 0) {
       if (d > today && (d.getDay() + 6) % 7 === 0) break;
       const k = dayKey(d.getTime());
-      const level = d <= today ? byDay[k] : undefined;
-      cells += `<span class="mood-day ${k === todayKey ? "today" : ""}" ${level ? `data-level="${level}"` : ""} title="${k}${level ? ` · nastrój ${level}/5` : ""}" style="${d > today ? "visibility:hidden" : ""}"></span>`;
+      const inRange = d >= rangeStart && d <= today;
+      const level = inRange ? byDay[k] : undefined;
+      cells += `<span class="mood-day ${k === todayKey ? "today" : ""}" ${level ? `data-level="${level}"` : ""} title="${inRange ? `${k}${level ? ` · nastrój ${level}/5` : ""}` : ""}" style="${!inRange ? "visibility:hidden" : ""}"></span>`;
       d.setDate(d.getDate() + 1);
     }
     $("#moodGraph").innerHTML = cells;
@@ -301,10 +381,9 @@
 
     $$("#moodList .entry-del").forEach((btn) =>
       btn.addEventListener("click", () => {
-        state.moods = state.moods.filter((m) => m.id !== btn.dataset.id);
-        saveState();
-        renderMood();
-        toast("rm ✓ log usunięty");
+        const m = state.moods.find((x) => x.id === btn.dataset.id);
+        if (!m) return;
+        deleteWithUndo("moods", m.id, `mood ${m.level}/5 · ${fmtDate(m.ts)}`, renderMood);
       })
     );
   }
@@ -334,13 +413,19 @@
   });
 
   $("#deleteNoteBtn").addEventListener("click", () => {
-    if (!activeNoteId) return;
-    state.notes = state.notes.filter((n) => n.id !== activeNoteId);
-    activeNoteId = null;
-    saveState();
-    renderNotes();
-    renderCounts();
-    toast("rm ✓ notatka usunięta");
+    const note = state.notes.find((n) => n.id === activeNoteId);
+    if (!note) return;
+    deleteWithUndo("notes", note.id, note.title + ".md",
+      () => {
+        activeNoteId = null;
+        renderNotes();
+        renderCounts();
+      },
+      (item) => {
+        activeNoteId = item.id;
+        renderNotes();
+        renderCounts();
+      });
   });
 
   $("#tabEdit").addEventListener("click", () => setNoteTab("edit"));
@@ -477,11 +562,12 @@
     );
     $$("#sprintGroups .task-del").forEach((btn) =>
       btn.addEventListener("click", () => {
-        state.tasks = state.tasks.filter((x) => x.id !== btn.dataset.id);
-        saveState();
-        renderTasks();
-        renderCounts();
-        toast("rm ✓ zadanie usunięte");
+        const t = state.tasks.find((x) => x.id === btn.dataset.id);
+        if (!t) return;
+        deleteWithUndo("tasks", t.id, t.text.slice(0, 40), () => {
+          renderTasks();
+          renderCounts();
+        });
       })
     );
   }
@@ -668,11 +754,13 @@
 
     $$("#voiceList .entry-del").forEach((btn) =>
       btn.addEventListener("click", () => {
-        state.voice = state.voice.filter((v) => v.id !== btn.dataset.id);
-        saveState();
-        renderVoice();
-        renderCounts();
-        toast("rm ✓ nagranie usunięte");
+        const v = state.voice.find((x) => x.id === btn.dataset.id);
+        if (!v) return;
+        const label = `${fmtDate(v.ts)}_${fmtTime(v.ts).replace(":", "-")}.webm`;
+        deleteWithUndo("voice", v.id, label, () => {
+          renderVoice();
+          renderCounts();
+        });
       })
     );
   }
