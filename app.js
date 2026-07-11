@@ -159,6 +159,9 @@
     themeToggle.querySelector(".theme-label").textContent =
       theme === "dark" ? "light_mode" : "dark_mode";
     localStorage.setItem(THEME_KEY, theme);
+    // kolor paska systemowego w zainstalowanej apce (PWA)
+    document.querySelector('meta[name="theme-color"]')
+      .setAttribute("content", theme === "dark" ? "#0d0f12" : "#fff7e6");
   }
   applyTheme(localStorage.getItem(THEME_KEY) || "dark");
   themeToggle.addEventListener("click", () => {
@@ -925,4 +928,9 @@
   render("dashboard");
   drawIdle();
   setInterval(refreshEntryFilename, 30000);
+
+  /* ── PWA: rejestracja service workera (offline + instalacja na telefonie) ── */
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  }
 })();
