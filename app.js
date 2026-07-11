@@ -281,6 +281,9 @@
       d.setDate(d.getDate() + 1);
     }
     $("#moodGraph").innerHTML = cells;
+    // na wąskich ekranach graf się przewija — pokaż od razu ostatnie tygodnie
+    const wrap = $(".mood-graph-wrap");
+    wrap.scrollLeft = wrap.scrollWidth;
 
     // lista ostatnich logów nastroju
     const recent = state.moods.slice(0, 20);
