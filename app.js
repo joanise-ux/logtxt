@@ -18,7 +18,10 @@
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return structuredClone(defaultState);
-      return Object.assign(structuredClone(defaultState), JSON.parse(raw));
+      const st = Object.assign(structuredClone(defaultState), JSON.parse(raw));
+      // transkrypcja przerwana przeładowaniem strony nie może wisieć wiecznie
+      for (const v of st.voice) if (v.transcribing) v.transcribing = false;
+      return st;
     } catch {
       return structuredClone(defaultState);
     }
@@ -159,6 +162,9 @@
     themeToggle.querySelector(".theme-label").textContent =
       theme === "dark" ? "light_mode" : "dark_mode";
     localStorage.setItem(THEME_KEY, theme);
+    // kolor paska systemowego w zainstalowanej apce (PWA)
+    document.querySelector('meta[name="theme-color"]')
+      .setAttribute("content", theme === "dark" ? "#0d0f12" : "#fff7e6");
   }
   applyTheme(localStorage.getItem(THEME_KEY) || "dark");
   themeToggle.addEventListener("click", () => {
@@ -328,7 +334,7 @@
   });
 
   function renderMood() {
-    // graf: ostatnie N dni (28/45/90), kolumny = tygodnie, wiersze = pon..nd
+    // graf: ostatnie N dni (28/45/90), układ kalendarza — kolumny = pon..nd, wiersze = tygodnie
     const byDay = {};
     for (const m of state.moods) {
       const k = dayKey(m.ts);
@@ -357,13 +363,10 @@
       const k = dayKey(d.getTime());
       const inRange = d >= rangeStart && d <= today;
       const level = inRange ? byDay[k] : undefined;
-      cells += `<span class="mood-day ${k === todayKey ? "today" : ""}" ${level ? `data-level="${level}"` : ""} title="${inRange ? `${k}${level ? ` · nastrój ${level}/5` : ""}` : ""}" style="${!inRange ? "visibility:hidden" : ""}"></span>`;
+      cells += `<span class="mood-day ${k === todayKey ? "today" : ""}" ${level ? `data-level="${level}"` : ""} title="${inRange ? `${k}${level ? ` · nastrój ${level}/5` : ""}` : ""}" style="${!inRange ? "visibility:hidden" : ""}">${inRange ? `<span class="d">${d.getDate()}</span>` : ""}</span>`;
       d.setDate(d.getDate() + 1);
     }
     $("#moodGraph").innerHTML = cells;
-    // na wąskich ekranach graf się przewija — pokaż od razu ostatnie tygodnie
-    const wrap = $(".mood-graph-wrap");
-    wrap.scrollLeft = wrap.scrollWidth;
 
     // lista ostatnich logów nastroju
     const recent = state.moods.slice(0, 20);
@@ -522,6 +525,19 @@
     renderCounts();
   });
 
+  const STATUS_ORDER = ["in_progress", "pending", "done"];
+  let doneOpen = false; // sekcja done domyślnie zwinięta
+
+  function taskRow(t) {
+    return `<div class="task-item" data-status="${t.status}" data-item-id="${t.id}">
+      <button class="task-check" data-id="${t.id}" title="→ ${STATUS_NEXT[t.status]}" aria-label="Następny status">${STATUS_MARK[t.status]}</button>
+      <span class="task-text">${escapeHtml(t.text)}</span>
+      <span class="task-sprint mono">${escapeHtml(t.sprint)}</span>
+      <button class="status-tag mono" data-id="${t.id}" aria-haspopup="menu" title="Zmień status">${t.status}</button>
+      <button class="task-del" data-id="${t.id}">rm</button>
+    </div>`;
+  }
+
   function renderTasks() {
     $("#taskSprint").placeholder = currentSprint();
 
@@ -529,38 +545,49 @@
     $("#sprintList").innerHTML = sprints.map((s) => `<option value="${escapeHtml(s)}">`).join("");
 
     if (!state.tasks.length) {
-      $("#sprintGroups").innerHTML = `<div class="empty-state">// brak zadań — backlog czysty</div>`;
+      $("#statusGroups").innerHTML = `<div class="empty-state">// brak zadań — backlog czysty</div>`;
       return;
     }
 
-    $("#sprintGroups").innerHTML = sprints.map((sprint) => {
-      const tasks = state.tasks.filter((t) => t.sprint === sprint);
-      const done = tasks.filter((t) => t.status === "done").length;
-      return `<div class="sprint-group">
-        <div class="sprint-head">
-          <span>## ${escapeHtml(sprint)}</span>
-          <span class="sprint-progress">[${done}/${tasks.length} done]</span>
-        </div>
-        ${tasks.map((t) => `<div class="task-item" data-status="${t.status}" data-item-id="${t.id}">
-          <button class="task-check" data-id="${t.id}" aria-label="Zmień status">${STATUS_MARK[t.status]}</button>
-          <span class="task-text">${escapeHtml(t.text)}</span>
-          <span class="task-status">${t.status}</span>
-          <button class="task-del" data-id="${t.id}">rm</button>
-        </div>`).join("")}
+    $("#statusGroups").innerHTML = STATUS_ORDER.map((status) => {
+      const tasks = state.tasks.filter((t) => t.status === status);
+      const isDone = status === "done";
+      const open = !isDone || doneOpen;
+      const head = isDone
+        ? `<button class="status-head mono" id="doneToggle" aria-expanded="${doneOpen}">
+            <span class="caret">${doneOpen ? "▾" : "▸"}</span>
+            <span>## done</span>
+            <span class="status-count">(${tasks.length})</span>
+          </button>`
+        : `<div class="status-head mono">
+            <span>## ${status}</span>
+            <span class="status-count">(${tasks.length})</span>
+          </div>`;
+      return `<div class="status-group" data-status="${status}">
+        ${head}
+        ${open ? (tasks.length ? tasks.map(taskRow).join("") : `<div class="empty-state slim">// pusto</div>`) : ""}
       </div>`;
     }).join("");
 
-    $$("#sprintGroups .task-check").forEach((btn) =>
+    const doneToggle = $("#doneToggle");
+    if (doneToggle) doneToggle.addEventListener("click", () => {
+      doneOpen = !doneOpen;
+      renderTasks();
+    });
+
+    $$("#statusGroups .task-check").forEach((btn) =>
       btn.addEventListener("click", () => {
         const t = state.tasks.find((x) => x.id === btn.dataset.id);
-        t.status = STATUS_NEXT[t.status];
-        saveState();
-        renderTasks();
-        renderCounts();
-        if (t.status === "done") toast("✓ done — dobra robota");
+        if (t) setTaskStatus(t.id, STATUS_NEXT[t.status]);
       })
     );
-    $$("#sprintGroups .task-del").forEach((btn) =>
+    $$("#statusGroups .status-tag").forEach((btn) =>
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleStatusMenu(btn);
+      })
+    );
+    $$("#statusGroups .task-del").forEach((btn) =>
       btn.addEventListener("click", () => {
         const t = state.tasks.find((x) => x.id === btn.dataset.id);
         if (!t) return;
@@ -570,6 +597,57 @@
         });
       })
     );
+  }
+
+  /* menu wyboru statusu przy tagu */
+  function closeStatusMenu() {
+    $$(".status-menu").forEach((m) => m.remove());
+  }
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".status-menu")) closeStatusMenu();
+  });
+
+  function toggleStatusMenu(btn) {
+    const item = btn.closest(".task-item");
+    const wasOpen = item.querySelector(".status-menu");
+    closeStatusMenu();
+    if (wasOpen) return;
+    const t = state.tasks.find((x) => x.id === btn.dataset.id);
+    if (!t) return;
+    const menu = document.createElement("div");
+    menu.className = "status-menu mono";
+    menu.innerHTML = STATUS_ORDER.map((s) =>
+      `<button class="status-option ${s === t.status ? "current" : ""}" data-status="${s}">
+        <span class="opt-mark">${STATUS_MARK[s]}</span> ${s}${s === t.status ? " ←" : ""}
+      </button>`).join("");
+    item.appendChild(menu);
+    menu.querySelectorAll(".status-option").forEach((opt) =>
+      opt.addEventListener("click", () => setTaskStatus(t.id, opt.dataset.status))
+    );
+  }
+
+  /* zmiana statusu z animacją przeniesienia do właściwej sekcji */
+  function setTaskStatus(id, status) {
+    closeStatusMenu();
+    const t = state.tasks.find((x) => x.id === id);
+    if (!t || t.status === status) return;
+    const el = document.querySelector(`#statusGroups [data-item-id="${id}"]`);
+    const apply = () => {
+      t.status = status;
+      saveState();
+      renderTasks();
+      renderCounts();
+      const nel = document.querySelector(`#statusGroups [data-item-id="${id}"]`);
+      if (nel) {
+        nel.classList.add("task-enter");
+        setTimeout(() => nel.classList.remove("task-enter"), 350);
+      }
+      if (status === "done") toast("✓ done — dobra robota");
+    };
+    if (el) {
+      el.classList.add("task-leave");
+      setTimeout(apply, 180);
+    } else apply();
   }
 
   /* ═══════════════ voice/ ═══════════════ */
@@ -700,21 +778,32 @@
 
       const reader = new FileReader();
       reader.onload = () => {
-        // małe opóźnienie na końcowe wyniki rozpoznawania mowy
-        setTimeout(() => {
-          state.voice.unshift({
-            id: uid(), ts: Date.now(), duration,
-            dataUrl: reader.result,
-            peaks: sampled,
-            transcript: transcriptText.trim(),
-          });
-          if (saveState()) toast("Zapisano ✓ voice memo committed");
+        const memo = {
+          id: uid(), ts: Date.now(), duration,
+          dataUrl: reader.result,
+          peaks: sampled,
+          transcript: transcriptText.trim(),
+          transcribing: !!SpeechRec,
+        };
+        state.voice.unshift(memo);
+        if (saveState()) toast("Zapisano ✓ voice memo committed");
+        recTimer.textContent = "00:00";
+        drawIdle();
+        renderVoice();
+        renderCounts();
+        if (memo.transcribing) {
+          // rozpoznawanie mowy dosyła końcowe wyniki jeszcze chwilę po stopie
+          recStatus.textContent = "// transkrypcja w toku...";
+          setTimeout(() => {
+            memo.transcribing = false;
+            memo.transcript = transcriptText.trim();
+            saveState();
+            renderVoice();
+            recStatus.textContent = "// gotowy";
+          }, 1500);
+        } else {
           recStatus.textContent = "// gotowy";
-          recTimer.textContent = "00:00";
-          drawIdle();
-          renderVoice();
-          renderCounts();
-        }, 400);
+        }
       };
       reader.readAsDataURL(blob);
     };
@@ -737,6 +826,17 @@
     return peaks.map((p) => WAVE_CHARS[Math.min(7, Math.floor(p * 8))]).join("");
   }
 
+  // blok transkrypcji: tekst (skrót, rozwijany kliknięciem) albo stan w toku/błędu
+  function transcriptBlock(v) {
+    if (v.transcribing)
+      return `<div class="voice-transcript vt-status mono">// transkrypcja w toku<span class="cursor" aria-hidden="true">_</span></div>`;
+    if (v.transcript)
+      return `<button type="button" class="voice-transcript vt-toggle" data-id="${v.id}" title="Pokaż całość / zwiń">
+          <span class="vt-text">${escapeHtml(v.transcript)}</span>
+        </button>`;
+    return `<div class="voice-transcript vt-status mono">// ${SpeechRec ? "nie udało się rozpoznać mowy" : "transkrypcja niedostępna w tej przeglądarce"}</div>`;
+  }
+
   function renderVoice() {
     $("#voiceList").innerHTML = state.voice.length
       ? state.voice.map((v) => `<article class="entry-card voice-card" data-item-id="${v.id}">
@@ -748,9 +848,13 @@
           </div>
           <div class="voice-wave" aria-hidden="true">${asciiWave(v.peaks || [])}</div>
           <audio controls preload="none" src="${v.dataUrl}"></audio>
-          ${v.transcript ? `<div class="voice-transcript">${escapeHtml(v.transcript)}</div>` : ""}
+          ${transcriptBlock(v)}
         </article>`).join("")
       : `<div class="empty-state">// brak nagrań — naciśnij record i powiedz, co myślisz</div>`;
+
+    $$("#voiceList .vt-toggle").forEach((el) =>
+      el.addEventListener("click", () => el.classList.toggle("expanded"))
+    );
 
     $$("#voiceList .entry-del").forEach((btn) =>
       btn.addEventListener("click", () => {
@@ -773,6 +877,10 @@
     const view = KIND_VIEW[kind];
     if (kind === "note") activeNoteId = id;
     if (kind === "entry") activeTagFilter = null;
+    if (kind === "task") {
+      const t = state.tasks.find((x) => x.id === id);
+      if (t && t.status === "done") doneOpen = true; // rozwiń sekcję, żeby dało się doskrolować
+    }
     showView(view);
     if (kind === "note") return; // notatka otwiera się w edytorze
     setTimeout(() => {
@@ -925,4 +1033,9 @@
   render("dashboard");
   drawIdle();
   setInterval(refreshEntryFilename, 30000);
+
+  /* ── PWA: rejestracja service workera (offline + instalacja na telefonie) ── */
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  }
 })();

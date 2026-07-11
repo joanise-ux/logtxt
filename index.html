@@ -5,7 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="color-scheme" content="dark light">
   <meta name="description" content="log.txt — dziennik myśli w stylu terminala. Wpisy, nastroje, notatki, zadania i notatki głosowe.">
+  <meta name="theme-color" content="#0d0f12">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="log.txt">
   <title>log.txt — dziennik</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -156,6 +163,9 @@
               </span>
             </div>
             <div class="mood-graph-wrap">
+              <div class="mood-dow mono" aria-hidden="true">
+                <span>pn</span><span>wt</span><span>śr</span><span>cz</span><span>pt</span><span>sb</span><span>nd</span>
+              </div>
               <div class="mood-graph" id="moodGraph"></div>
             </div>
             <div class="mood-legend mono">
@@ -203,7 +213,7 @@
         <section class="view" data-view="tasks">
           <div class="view-head">
             <h1 class="mono">tasks.todo</h1>
-            <p class="view-sub">// checklisty pogrupowane w sprinty</p>
+            <p class="view-sub">// zadania posegregowane wg statusu: in_progress → pending → done</p>
           </div>
 
           <form class="panel" id="taskForm">
@@ -217,7 +227,7 @@
             </div>
           </form>
 
-          <div id="sprintGroups"></div>
+          <div id="statusGroups"></div>
         </section>
 
         <!-- ═══ voice/ ═══ -->
