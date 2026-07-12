@@ -734,12 +734,12 @@
     // budżet wysokości: reszta viewportu poniżej góry siatki minus rezerwa
     // na legendę, listę logów i margines. Trzymamy graf zwarty, żeby
     // 28d nie zajmowało pół ekranu.
-    const budgetH = Math.max(150, window.innerHeight - rect.top - 260);
+    const budgetH = Math.max(110, window.innerHeight - rect.top - 380);
 
     const cellFromW = (availableW - (cols - 1) * gap) / cols;
     const cellFromH = (budgetH - (rows - 1) * gap) / rows;
-    // cap kafelka niżej — priorytet: zwartość, nie maksymalny rozmiar
-    const cell = Math.max(14, Math.floor(Math.min(cellFromW, cellFromH, 42)));
+    // kafelek trzymamy mały — priorytet: zwartość grafu
+    const cell = Math.max(12, Math.floor(Math.min(cellFromW, cellFromH, 30)));
 
     wrap.style.setProperty("--mood-cell", cell + "px");
   }
