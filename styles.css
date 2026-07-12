@@ -310,6 +310,25 @@ textarea:focus, input:focus {
 }
 .entry-hash { color: var(--accent-3); }
 .entry-file { color: var(--text-dim); }
+/* wskaźnik nastroju danego dnia w metadanych wpisu — lekka integracja z mood.log */
+.entry-mood {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 8px 2px 6px;
+  border-radius: 20px;
+  background: var(--bg-raised);
+  color: var(--text-dim);
+  border: 1px solid var(--border-soft);
+  cursor: pointer;
+  transition: color 0.18s var(--ease), border-color 0.18s var(--ease), box-shadow 0.18s var(--ease);
+}
+.entry-mood .mood-cell { width: 10px; height: 10px; border-radius: 3px; }
+.entry-mood:hover { color: var(--accent-2); border-color: var(--accent-2); box-shadow: var(--glow-2); }
+.em-lvl { line-height: 1; }
+
 .entry-del {
   margin-left: auto;
   color: var(--text-faint);
@@ -612,24 +631,34 @@ textarea:focus, input:focus {
 .mood-cell.l4 { background: var(--mood-4); }
 .mood-cell.l5 { background: var(--mood-5); }
 
-.mood-graph-wrap { padding-bottom: 4px; }
+/* siatkę mierzy JS (fitMoodGraph); zmienne --mood-cell steruje wymiarem kafelka,
+   dzięki czemu graf zawsze mieści się w viewport, niezależnie od zakresu (28/45/90 dni) */
+.mood-graph-wrap {
+  padding-bottom: 4px;
+  --mood-cell: 44px;
+  --mood-gap: 6px;
+}
 .mood-dow {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: clamp(4px, 1.4vw, 12px);
-  margin-bottom: 8px;
+  grid-template-columns: repeat(7, var(--mood-cell));
+  gap: var(--mood-gap);
+  margin-bottom: 6px;
   font-size: 11px;
   color: var(--text-faint);
+  justify-content: center;
 }
 .mood-dow span { text-align: center; }
 .mood-graph {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: clamp(4px, 1.4vw, 12px);
+  grid-template-columns: repeat(7, var(--mood-cell));
+  grid-auto-rows: var(--mood-cell);
+  gap: var(--mood-gap);
+  justify-content: center;
 }
 .mood-day {
   position: relative;
-  aspect-ratio: 1;
+  width: var(--mood-cell);
+  height: var(--mood-cell);
   border-radius: 14%;
   background: var(--bg-raised);
   border: 1px solid var(--border-soft);
@@ -637,9 +666,9 @@ textarea:focus, input:focus {
 }
 .mood-day .d {
   position: absolute;
-  top: 9%; left: 11%;
+  top: 8%; left: 10%;
   font-family: var(--font-mono);
-  font-size: clamp(9px, 1.5vw, 13px);
+  font-size: max(8px, calc(var(--mood-cell) * 0.28));
   line-height: 1;
   color: var(--text-faint);
 }

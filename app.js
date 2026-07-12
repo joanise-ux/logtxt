@@ -38,6 +38,15 @@
       const st = Object.assign(structuredClone(defaultState), JSON.parse(raw));
       // transkrypcja przerwana przeładowaniem strony nie może wisieć wiecznie
       for (const v of st.voice) if (v.transcribing) v.transcribing = false;
+      // migracja: jeden mood dziennie — zachowaj najnowszy, resztę odrzuć
+      // (lista jest od najnowszych, więc filtr zostawia pierwsze wystąpienie dnia)
+      const seenDays = new Set();
+      st.moods = st.moods.filter((m) => {
+        const k = `${new Date(m.ts).getFullYear()}-${new Date(m.ts).getMonth()}-${new Date(m.ts).getDate()}`;
+        if (seenDays.has(k)) return false;
+        seenDays.add(k);
+        return true;
+      });
       return st;
     } catch {
       return structuredClone(defaultState);
@@ -618,6 +627,20 @@
         });
       })
     );
+
+    // klik na badge nastroju otwiera mood.log
+    $$("#entryList [data-mood-jump]").forEach((el) =>
+      el.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        showView("mood");
+      })
+    );
+  }
+
+  // nastrój z danego dnia — używany jako mały kontekst przy wpisie
+  function moodOfDay(k) {
+    const m = state.moods.find((x) => dayKey(x.ts) === k);
+    return m ? m.level : null;
   }
 
   function entryCard(e) {
@@ -625,10 +648,17 @@
     const attHtml = e.attachments.length
       ? `<div class="media-attachments media-view">${renderAttachmentsList(e.attachments, { editable: false })}</div>`
       : "";
+    const dayMood = moodOfDay(dayKey(e.ts));
+    const moodBadge = dayMood
+      ? `<button type="button" class="entry-mood mono" data-mood-jump title="mood ${dayMood}/5 — otwórz mood.log">
+          <span class="mood-cell l${dayMood}"></span><span class="em-lvl">${dayMood}/5</span>
+        </button>`
+      : "";
     return `<article class="entry-card" data-item-id="${e.id}">
       <div class="entry-meta">
         <span class="entry-hash">${hashOf(e.id)}</span>
         <span class="entry-file">${fmtFile(e.ts)}</span>
+        ${moodBadge}
         <button class="entry-del" data-id="${e.id}">rm</button>
       </div>
       ${e.body ? `<div class="entry-body">${escapeHtml(e.body)}</div>` : ""}
@@ -665,16 +695,53 @@
   $("#moodForm").addEventListener("submit", (e) => {
     e.preventDefault();
     if (!selectedMood) return;
-    state.moods.unshift({ id: uid(), ts: Date.now(), level: selectedMood, note: $("#moodNote").value.trim() });
+    // jeden mood dziennie — jeśli dziś jest już wpis, nadpisujemy go zachowując id,
+    // ale przenosimy na górę listy jako najnowszy
+    const todayK = dayKey(Date.now());
+    const existingIdx = state.moods.findIndex((m) => dayKey(m.ts) === todayK);
+    const id = existingIdx >= 0 ? state.moods[existingIdx].id : uid();
+    if (existingIdx >= 0) state.moods.splice(existingIdx, 1);
+    const overwritten = existingIdx >= 0;
+    state.moods.unshift({
+      id, ts: Date.now(), level: selectedMood,
+      note: $("#moodNote").value.trim(),
+    });
     if (saveState()) {
       $("#moodNote").value = "";
       selectedMood = null;
       $$("#moodScale .mood-btn").forEach((b) => b.classList.remove("selected"));
       $("#moodSubmit").disabled = true;
-      toast("Zapisano ✓ mood logged");
+      toast(overwritten ? "Zaktualizowano ✓ mood updated" : "Zapisano ✓ mood logged");
     }
     renderMood();
   });
+
+  /* dopasowuje rozmiar kafelka moodu do dostępnej wysokości i szerokości —
+     im więcej dni (28/45/90), tym mniejsze kafelki, wszystko musi się zmieścić
+     bez scrolla przy typowych rozmiarach ekranu */
+  function fitMoodGraph() {
+    const graph = $("#moodGraph");
+    const wrap = graph.closest(".mood-graph-wrap");
+    if (!graph || !wrap) return;
+    const cells = graph.children.length;
+    if (!cells) return;
+    const rows = Math.ceil(cells / 7);
+    const cols = 7;
+    const gap = 6;
+
+    const rect = wrap.getBoundingClientRect();
+    const availableW = rect.width;
+    // budżet wysokości: od góry siatki do dolnej krawędzi viewportu,
+    // minus rezerwa na legendę + margines. Dolna granica 180 na małych ekranach.
+    const budgetH = Math.max(180, window.innerHeight - rect.top - 140);
+
+    const cellFromW = (availableW - (cols - 1) * gap) / cols;
+    const cellFromH = (budgetH - (rows - 1) * gap) / rows;
+    const cell = Math.max(14, Math.floor(Math.min(cellFromW, cellFromH, 62)));
+
+    wrap.style.setProperty("--mood-cell", cell + "px");
+  }
+  window.addEventListener("resize", () => { if (activeView === "mood") fitMoodGraph(); });
 
   function renderMood() {
     // graf: ostatnie N dni (28/45/90), układ kalendarza — kolumny = pon..nd, wiersze = tygodnie
@@ -710,6 +777,7 @@
       d.setDate(d.getDate() + 1);
     }
     $("#moodGraph").innerHTML = cells;
+    fitMoodGraph();
 
     // lista ostatnich logów nastroju
     const recent = state.moods.slice(0, 20);
