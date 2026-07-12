@@ -14,6 +14,12 @@
 
   const defaultState = { entries: [], moods: [], notes: [], tasks: [], voice: [] };
 
+  // migracja starych rekordów: attachments jest domyślnie pustą listą
+  function ensureAttachments(item) {
+    if (!Array.isArray(item.attachments)) item.attachments = [];
+    return item;
+  }
+
   let state = loadState();
   let session = loadSession();
 
@@ -262,22 +268,307 @@
     $("#topbarDate").textContent = `${days[now.getDay()]} ${fmtDate(now)}`;
   }
 
+  /* ═══════════════ media (zdjęcia + audio w edytorach) ═══════════════ */
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const WAVE_CHARS_STR = "▁▂▃▄▅▆▇█";
+
+  function escapeAttr(s) {
+    return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function fileToDataUrl(file) {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = () => rej(new Error("read failed"));
+      r.readAsDataURL(file);
+    });
+  }
+
+  async function fetchUrlAsDataUrl(url) {
+    const resp = await fetch(url, { mode: "cors" });
+    if (!resp.ok) throw new Error("fetch failed");
+    const blob = await resp.blob();
+    if (!blob.type.startsWith("image/")) throw new Error("not an image");
+    return fileToDataUrl(blob);
+  }
+
+  function renderAttachment(a, opts = {}) {
+    const editable = opts.editable !== false;
+    if (a.type === "image") {
+      if (a.loading) return `<div class="attachment att-loading mono"><span class="dim">// ${escapeHtml(a.loadingMsg || "przesyłanie zdjęcia...")}</span></div>`;
+      const cap = editable
+        ? `<input type="text" class="att-caption mono" data-id="${a.id}" value="${escapeAttr(a.caption || "")}" placeholder="// caption (opcjonalnie)">`
+        : (a.caption ? `<figcaption class="att-caption-view mono">// ${escapeHtml(a.caption)}</figcaption>` : "");
+      const del = editable ? `<button type="button" class="att-del mono" data-id="${a.id}" title="Usuń">rm</button>` : "";
+      return `<figure class="attachment att-image" data-att="${a.id}">
+        <div class="att-image-frame"><img src="${escapeAttr(a.src)}" alt="${escapeAttr(a.caption || "")}" loading="lazy">${del}</div>
+        ${cap}
+      </figure>`;
+    }
+    if (a.type === "audio") {
+      const wave = a.peaks ? a.peaks.map((p) => WAVE_CHARS_STR[Math.min(7, Math.floor(p * 8))]).join("") : "";
+      const transcript = a.transcribing
+        ? `<div class="voice-transcript vt-status mono">// transkrypcja w toku<span class="cursor" aria-hidden="true">_</span></div>`
+        : a.transcript
+          ? `<div class="voice-transcript"><span class="vt-text">${escapeHtml(a.transcript)}</span></div>`
+          : "";
+      const del = editable ? `<button type="button" class="att-del mono" data-id="${a.id}" title="Usuń">rm</button>` : "";
+      return `<div class="attachment att-audio" data-att="${a.id}">
+        <div class="att-audio-head mono">
+          <span class="dim">// audio</span>
+          <span class="dim">${pad(Math.floor(a.duration / 60))}:${pad(a.duration % 60)}</span>
+          <span class="flex-spacer"></span>
+          ${del}
+        </div>
+        <div class="voice-wave" aria-hidden="true">${wave}</div>
+        <audio controls preload="none" src="${escapeAttr(a.src)}"></audio>
+        ${transcript}
+      </div>`;
+    }
+    return "";
+  }
+
+  function renderAttachmentsList(list, opts) {
+    return (list || []).map((a) => renderAttachment(a, opts)).join("");
+  }
+
+  // kontroler jednego hosta (entry lub note); reużywany w obu edytorach
+  function setupMediaHost({ host, getList, setList, getTextarea, onChange }) {
+    const root = document.querySelector(`.media-toolbar[data-host="${host}"]`);
+    const attachEl = document.querySelector(`#${host}Attachments`);
+    const fileInput = document.querySelector(`#${host}FileInput`);
+    const hintEl = root.querySelector("[data-hint]");
+    const recBtn = root.querySelector('[data-act="rec"]');
+
+    let hintTimer = null;
+    function setHint(msg, sticky) {
+      hintEl.textContent = msg || "";
+      clearTimeout(hintTimer);
+      if (msg && !sticky) hintTimer = setTimeout(() => (hintEl.textContent = ""), 2400);
+    }
+
+    function push(att) { setList([...getList(), att]); onChange && onChange(); render(); }
+    function update(id, patch) {
+      setList(getList().map((a) => (a.id === id ? { ...a, ...patch } : a)));
+      onChange && onChange();
+      render();
+    }
+    function remove(id) { setList(getList().filter((a) => a.id !== id)); onChange && onChange(); render(); }
+
+    function render() {
+      attachEl.innerHTML = renderAttachmentsList(getList(), { editable: true });
+      attachEl.querySelectorAll(".att-del").forEach((b) =>
+        b.addEventListener("click", () => remove(b.dataset.id))
+      );
+      attachEl.querySelectorAll(".att-caption").forEach((inp) =>
+        inp.addEventListener("input", () => {
+          // update bez re-render, żeby nie stracić fokusu
+          const list = getList().map((a) => (a.id === inp.dataset.id ? { ...a, caption: inp.value } : a));
+          setList(list);
+          onChange && onChange();
+        })
+      );
+      attachEl.querySelectorAll(".att-image img").forEach((img) =>
+        img.addEventListener("click", () => img.classList.toggle("zoomed"))
+      );
+    }
+
+    async function addPhotoFile(file) {
+      if (!file || !file.type.startsWith("image/")) { setHint("// błąd: to nie jest obraz"); return; }
+      const id = uid();
+      push({ id, type: "image", src: "", caption: "", loading: true });
+      setHint("// przesyłanie zdjęcia...", true);
+      try {
+        const src = await fileToDataUrl(file);
+        update(id, { src, loading: false });
+        setHint("// gotowe");
+      } catch {
+        remove(id);
+        setHint("// błąd: nie udało się wczytać", true);
+      }
+    }
+
+    async function addPhotoUrl(url) {
+      if (!url) return;
+      const id = uid();
+      push({ id, type: "image", src: "", caption: "", loading: true, loadingMsg: "pobieranie z URL..." });
+      setHint("// pobieranie z URL...", true);
+      let src;
+      try {
+        src = await fetchUrlAsDataUrl(url);
+      } catch {
+        // CORS / nie-obraz — spróbujmy osadzić link (przeglądarka pobierze przy render)
+        src = url;
+      }
+      update(id, { src, loading: false });
+      setHint("// gotowe");
+    }
+
+    // paste ze schowka (Ctrl+V) — jeśli w schowku jest obraz, dodajemy go zamiast wklejać tekst
+    const textarea = getTextarea();
+    if (textarea) {
+      textarea.addEventListener("paste", (e) => {
+        const items = e.clipboardData && e.clipboardData.items;
+        if (!items) return;
+        for (const it of items) {
+          if (it.kind === "file" && it.type.startsWith("image/")) {
+            const f = it.getAsFile();
+            if (f) { e.preventDefault(); addPhotoFile(f); return; }
+          }
+        }
+      });
+    }
+
+    root.querySelector('[data-act="photo-file"]').addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", () => {
+      for (const f of fileInput.files) addPhotoFile(f);
+      fileInput.value = "";
+    });
+    root.querySelector('[data-act="photo-url"]').addEventListener("click", () => {
+      const url = prompt("Wklej link do zdjęcia (jpg/png/webp):");
+      if (url) addPhotoUrl(url.trim());
+    });
+
+    /* ── recorder (per host) ── */
+    let mr = null, actx = null, ana = null, rafId = null, timerId = null;
+    let peaks = [], transcript = "", recog = null, recStart = 0;
+
+    async function toggleRec() {
+      if (mr && mr.state === "recording") { mr.stop(); return; }
+      let stream;
+      try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+      catch { setHint("// błąd: brak dostępu do mikrofonu", true); return; }
+
+      peaks = []; transcript = "";
+      const chunks = [];
+      mr = new MediaRecorder(stream);
+      mr.ondataavailable = (e) => chunks.push(e.data);
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = actx.createMediaStreamSource(stream);
+      ana = actx.createAnalyser();
+      ana.fftSize = 1024;
+      src.connect(ana);
+
+      if (SpeechRec) {
+        recog = new SpeechRec();
+        recog.lang = "pl-PL";
+        recog.continuous = true;
+        recog.interimResults = false;
+        recog.onresult = (e) => {
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            if (e.results[i].isFinal) transcript += e.results[i][0].transcript + " ";
+          }
+        };
+        try { recog.start(); } catch {}
+      }
+
+      const loop = () => {
+        const data = new Uint8Array(ana.frequencyBinCount);
+        ana.getByteTimeDomainData(data);
+        let mx = 0;
+        for (const v of data) mx = Math.max(mx, Math.abs(v - 128));
+        if (peaks.length < 4000) peaks.push(mx / 128);
+        rafId = requestAnimationFrame(loop);
+      };
+
+      mr.onstop = () => {
+        cancelAnimationFrame(rafId);
+        clearInterval(timerId);
+        stream.getTracks().forEach((t) => t.stop());
+        try { actx.close(); } catch {}
+        if (recog) { try { recog.stop(); } catch {} }
+        recBtn.classList.remove("recording");
+        recBtn.innerHTML = `<span class="mb-dot"></span> nagraj`;
+
+        const dur = Math.round((Date.now() - recStart) / 1000);
+        const bars = 64, sampled = [];
+        for (let i = 0; i < bars; i++) {
+          const s = Math.floor((i / bars) * peaks.length);
+          const en = Math.floor(((i + 1) / bars) * peaks.length);
+          let mx = 0;
+          for (let j = s; j < en; j++) mx = Math.max(mx, peaks[j] || 0);
+          sampled.push(Math.min(1, mx * 1.5));
+        }
+
+        const blob = new Blob(chunks, { type: mr.mimeType || "audio/webm" });
+        const rd = new FileReader();
+        const id = uid();
+        const wasTranscribing = !!SpeechRec;
+        rd.onload = () => {
+          push({
+            id, type: "audio", src: rd.result, duration: dur,
+            peaks: sampled, transcript: transcript.trim(),
+            transcribing: wasTranscribing,
+          });
+          if (wasTranscribing) {
+            setHint("// transkrypcja w toku...", true);
+            setTimeout(() => {
+              const finalText = transcript.trim();
+              update(id, { transcript: finalText, transcribing: false });
+              setHint(finalText ? "// transkrypcja gotowa" : "// nie udało się rozpoznać mowy");
+              // jeśli pole tekstowe jest puste — zaproponuj transkrypcję jako start
+              const ta = getTextarea();
+              if (ta && !ta.value.trim() && finalText) {
+                ta.value = finalText;
+                ta.dispatchEvent(new Event("input"));
+              }
+            }, 1500);
+          } else {
+            setHint("// zapisano");
+          }
+        };
+        rd.readAsDataURL(blob);
+      };
+
+      mr.start();
+      recStart = Date.now();
+      recBtn.classList.add("recording");
+      recBtn.innerHTML = `<span class="mb-dot"></span> stop <span class="rec-time mono" data-t>00:00</span>`;
+      setHint("// REC ● nagrywanie...", true);
+      timerId = setInterval(() => {
+        const s = Math.round((Date.now() - recStart) / 1000);
+        const t = recBtn.querySelector("[data-t]");
+        if (t) t.textContent = `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
+      }, 500);
+      loop();
+    }
+
+    recBtn.addEventListener("click", toggleRec);
+
+    return { render };
+  }
+
   /* ═══════════════ entries/ ═══════════════ */
   let activeTagFilter = null;
+  let entryDraftAttachments = [];
 
   function refreshEntryFilename() {
     $("#entryFilename").textContent = fmtFile(Date.now());
   }
 
+  const entryMedia = setupMediaHost({
+    host: "entry",
+    getList: () => entryDraftAttachments,
+    setList: (l) => { entryDraftAttachments = l; },
+    getTextarea: () => $("#entryBody"),
+  });
+
   $("#entryForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const body = $("#entryBody").value.trim();
-    if (!body) return;
+    // wpis może być samym nagraniem / zdjęciem — pozwól zapisać bez tekstu, jeśli są załączniki
+    if (!body && entryDraftAttachments.length === 0) return;
     const tags = ($("#entryTags").value.match(/#[\p{L}\p{N}_-]+/gu) || []).map((t) => t.toLowerCase());
-    state.entries.unshift({ id: uid(), ts: Date.now(), body, tags });
+    state.entries.unshift({
+      id: uid(), ts: Date.now(), body, tags,
+      attachments: entryDraftAttachments,
+    });
     if (saveState()) {
       $("#entryBody").value = "";
       $("#entryTags").value = "";
+      entryDraftAttachments = [];
+      entryMedia.render();
       toast("Zapisano ✓ commit successful");
     }
     renderEntries();
@@ -322,13 +613,18 @@
   }
 
   function entryCard(e) {
+    ensureAttachments(e);
+    const attHtml = e.attachments.length
+      ? `<div class="media-attachments media-view">${renderAttachmentsList(e.attachments, { editable: false })}</div>`
+      : "";
     return `<article class="entry-card" data-item-id="${e.id}">
       <div class="entry-meta">
         <span class="entry-hash">${hashOf(e.id)}</span>
         <span class="entry-file">${fmtFile(e.ts)}</span>
         <button class="entry-del" data-id="${e.id}">rm</button>
       </div>
-      <div class="entry-body">${escapeHtml(e.body)}</div>
+      ${e.body ? `<div class="entry-body">${escapeHtml(e.body)}</div>` : ""}
+      ${attHtml}
       ${e.tags.length ? `<div class="entry-tags">${e.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
     </article>`;
   }
@@ -434,7 +730,7 @@
   let activeNoteId = null;
 
   $("#newNoteBtn").addEventListener("click", () => {
-    const note = { id: uid(), ts: Date.now(), updated: Date.now(), title: "nowa", body: "" };
+    const note = { id: uid(), ts: Date.now(), updated: Date.now(), title: "nowa", body: "", attachments: [] };
     state.notes.unshift(note);
     saveState();
     activeNoteId = note.id;
@@ -442,6 +738,24 @@
     renderCounts();
     $("#noteTitle").focus();
     $("#noteTitle").select();
+  });
+
+  // pojedynczy media host dla notatki, przełącza się na aktualnie aktywną
+  const noteMedia = setupMediaHost({
+    host: "note",
+    getList: () => {
+      const n = state.notes.find((x) => x.id === activeNoteId);
+      return n ? ensureAttachments(n).attachments : [];
+    },
+    setList: (l) => {
+      const n = state.notes.find((x) => x.id === activeNoteId);
+      if (n) n.attachments = l;
+    },
+    getTextarea: () => $("#noteBody"),
+    onChange: () => {
+      const n = state.notes.find((x) => x.id === activeNoteId);
+      if (n) { n.updated = Date.now(); saveState(); }
+    },
   });
 
   $("#saveNoteBtn").addEventListener("click", () => {
@@ -478,7 +792,16 @@
     $("#tabPreview").classList.toggle("active", tab === "preview");
     $("#noteBody").hidden = tab !== "edit";
     $("#notePreview").hidden = tab !== "preview";
-    if (tab === "preview") $("#notePreview").innerHTML = renderMarkdown($("#noteBody").value);
+    // toolbar/attachments widoczne tylko w trybie edycji (podgląd pokazuje osadzone media inline)
+    document.querySelector('.media-toolbar[data-host="note"]').style.display = tab === "edit" ? "" : "none";
+    $("#noteAttachments").style.display = tab === "edit" ? "" : "none";
+    if (tab === "preview") {
+      const n = state.notes.find((x) => x.id === activeNoteId);
+      const attHtml = n && n.attachments && n.attachments.length
+        ? `<div class="media-attachments media-view">${renderAttachmentsList(n.attachments, { editable: false })}</div>`
+        : "";
+      $("#notePreview").innerHTML = renderMarkdown($("#noteBody").value) + attHtml;
+    }
   }
 
   function renderNotes() {
@@ -499,8 +822,10 @@
     const note = state.notes.find((n) => n.id === activeNoteId);
     $("#noteEditor").hidden = !note;
     if (note) {
+      ensureAttachments(note);
       $("#noteTitle").value = note.title;
       $("#noteBody").value = note.body;
+      noteMedia.render();
       setNoteTab("edit");
     }
   }
@@ -706,7 +1031,6 @@
   let recognition = null;
   let transcriptText = "";
 
-  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   $("#transcriptHint").textContent = SpeechRec ? "// auto-transkrypcja: on" : "// transkrypcja niedostępna w tej przeglądarce";
 
   function resizeCanvas() {

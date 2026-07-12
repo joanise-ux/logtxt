@@ -211,10 +211,18 @@
               <span class="dim">$</span> nowy wpis → <span class="accent" id="entryFilename"></span>
             </div>
             <textarea id="entryBody" rows="5" placeholder="$ napisz coś..." spellcheck="true"></textarea>
+            <div class="media-toolbar mono" data-host="entry">
+              <button type="button" class="media-btn" data-act="photo-file"><span class="mb-ico">+</span> dodaj zdjęcie</button>
+              <button type="button" class="media-btn" data-act="photo-url"><span class="mb-ico">↗</span> z URL</button>
+              <button type="button" class="media-btn media-rec" data-act="rec"><span class="mb-dot"></span> nagraj</button>
+              <span class="media-hint dim" data-hint></span>
+            </div>
+            <div class="media-attachments" id="entryAttachments"></div>
             <div class="form-row">
               <input type="text" id="entryTags" class="mono" placeholder="#refleksja #praca #pomysł">
               <button type="submit" class="btn btn-primary mono">git commit</button>
             </div>
+            <input type="file" id="entryFileInput" accept="image/jpeg,image/png,image/webp" hidden>
           </form>
 
           <div class="tag-filter mono" id="tagFilter"></div>
@@ -289,12 +297,20 @@
                 <button type="button" class="tab-btn" id="tabPreview">preview</button>
               </div>
               <textarea id="noteBody" rows="14" placeholder="# nagłówek&#10;&#10;**pogrubienie**, *kursywa*, `kod`&#10;&#10;- lista&#10;- [ ] checkbox" spellcheck="true"></textarea>
+              <div class="media-toolbar mono" data-host="note">
+                <button type="button" class="media-btn" data-act="photo-file"><span class="mb-ico">+</span> dodaj zdjęcie</button>
+                <button type="button" class="media-btn" data-act="photo-url"><span class="mb-ico">↗</span> z URL</button>
+                <button type="button" class="media-btn media-rec" data-act="rec"><span class="mb-dot"></span> nagraj</button>
+                <span class="media-hint dim" data-hint></span>
+              </div>
+              <div class="media-attachments" id="noteAttachments"></div>
               <div class="md-preview" id="notePreview" hidden></div>
               <div class="form-row">
                 <button type="button" class="btn btn-ghost mono" id="deleteNoteBtn">rm</button>
                 <span class="flex-spacer"></span>
                 <button type="button" class="btn btn-primary mono" id="saveNoteBtn">:w zapisz</button>
               </div>
+              <input type="file" id="noteFileInput" accept="image/jpeg,image/png,image/webp" hidden>
             </div>
           </div>
         </section>

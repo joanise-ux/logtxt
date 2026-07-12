@@ -813,6 +813,152 @@ button.status-head:hover { color: var(--text); }
 }
 .vt-toggle.expanded .vt-text { display: block; -webkit-line-clamp: unset; }
 
+/* ═══ media toolbar (zdjęcia + nagrania w edytorze wpisu/notatki) ═══ */
+.media-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 12px;
+}
+.media-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg-input);
+  transition: all 0.18s var(--ease);
+}
+.media-btn:hover { color: var(--accent); border-color: var(--accent); box-shadow: var(--glow); }
+.media-btn .mb-ico { color: var(--accent); font-weight: 600; }
+.media-btn.media-rec .mb-dot {
+  display: inline-block;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent-2);
+}
+.media-btn.recording {
+  color: var(--accent-2);
+  border-color: color-mix(in srgb, var(--accent-2) 40%, transparent);
+  background: var(--accent-2-bg);
+  box-shadow: var(--glow-2);
+}
+.media-btn.recording .mb-dot { animation: blink 1s steps(2) infinite; }
+.rec-time { margin-left: 4px; font-size: 11px; color: var(--text-dim); }
+.media-hint {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  margin-left: auto;
+  color: var(--text-faint);
+}
+
+/* ═══ osadzone media (podgląd + karta) ═══ */
+.media-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+.media-attachments:empty { display: none; }
+
+.attachment {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-3);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  position: relative;
+}
+.att-loading {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 12px;
+}
+
+.att-image { padding: 8px 10px 10px; }
+.att-image-frame {
+  position: relative;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  padding: 4px;
+  background: var(--bg-panel);
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+}
+.att-image img {
+  max-width: 100%;
+  max-height: 340px;
+  height: auto;
+  border-radius: 3px;
+  cursor: zoom-in;
+  transition: max-height 0.3s var(--ease);
+}
+.att-image img.zoomed {
+  max-height: none;
+  cursor: zoom-out;
+}
+.att-caption {
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  border-top: 1px dashed var(--border-soft);
+  border-radius: 0;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.att-caption:focus {
+  outline: none;
+  border-top-color: var(--accent-3);
+  color: var(--text);
+  box-shadow: none;
+}
+.att-caption-view {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 0 2px;
+}
+.att-del {
+  position: absolute;
+  top: 8px; right: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  background: color-mix(in srgb, var(--bg-panel) 85%, transparent);
+  border: 1px solid var(--border);
+  padding: 1px 7px;
+  border-radius: 3px;
+  opacity: 0.55;
+  transition: opacity 0.2s var(--ease), color 0.2s var(--ease);
+  z-index: 2;
+}
+.attachment:hover .att-del { opacity: 1; }
+.att-del:hover { color: var(--accent-2); border-color: var(--accent-2); }
+
+.att-audio { padding: 10px 12px; }
+.att-audio-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
+  margin-bottom: 8px;
+}
+.att-audio-head .att-del { position: static; opacity: 1; }
+.att-audio audio { width: 100%; height: 36px; margin-top: 6px; }
+.att-audio .voice-wave { margin-top: 4px; }
+.att-audio .voice-transcript { margin-top: 10px; }
+
+/* widok (karta wpisu / podgląd notatki) — bez marginesu przy dołączeniu do body */
+.media-view { margin-top: 12px; }
+
 /* ═══ toast ═══ */
 .toast {
   position: fixed;
