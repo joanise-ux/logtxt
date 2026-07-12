@@ -233,11 +233,14 @@
     activeView = name;
     $$(".nav-item").forEach((b) => b.classList.toggle("active", b.dataset.view === name));
     $$(".view").forEach((v) => v.classList.toggle("active", v.dataset.view === name));
+    const moreBtn = document.getElementById("bottomNavMore");
+    if (moreBtn) moreBtn.classList.toggle("active", name === "mood" || name === "voice");
     $("#crumbView").textContent = name === "dashboard" ? "dashboard"
       : name === "mood" ? "mood.log"
       : name === "tasks" ? "tasks.todo"
       : name + "/";
     closeSidebar();
+    closeBottomSheet();
     render(name);
   }
 
@@ -254,6 +257,37 @@
     scrim.classList.remove("show");
   }
   scrim.addEventListener("click", closeSidebar);
+
+  /* ── mobilny bottom nav: sheet "więcej" ── */
+  const bottomSheet = $("#bottomNavSheet");
+  const bottomSheetScrim = $("#bottomSheetScrim");
+  const bottomMoreBtn = $("#bottomNavMore");
+  function openBottomSheet() {
+    bottomSheet.classList.add("show");
+    bottomSheetScrim.classList.add("show");
+    bottomSheet.setAttribute("aria-hidden", "false");
+    bottomMoreBtn.setAttribute("aria-expanded", "true");
+  }
+  function closeBottomSheet() {
+    bottomSheet.classList.remove("show");
+    bottomSheetScrim.classList.remove("show");
+    bottomSheet.setAttribute("aria-hidden", "true");
+    bottomMoreBtn.setAttribute("aria-expanded", "false");
+  }
+  bottomMoreBtn.addEventListener("click", () => {
+    if (bottomSheet.classList.contains("show")) closeBottomSheet();
+    else openBottomSheet();
+  });
+  bottomSheetScrim.addEventListener("click", closeBottomSheet);
+  // mirror actions: motyw + wyloguj z sheetu
+  $("#bottomThemeMirror").addEventListener("click", () => {
+    $("#themeToggle").click();
+    closeBottomSheet();
+  });
+  $("#bottomLogoutMirror").addEventListener("click", () => {
+    closeBottomSheet();
+    $("#logoutBtn").click();
+  });
 
   /* ── liczniki w nav ── */
   function renderCounts() {
