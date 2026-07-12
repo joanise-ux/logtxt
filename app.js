@@ -19,6 +19,14 @@
     if (!Array.isArray(item.attachments)) item.attachments = [];
     return item;
   }
+  // migracja: pole `pinned` na notatkach
+  function ensurePin(note) {
+    if (typeof note.pinned !== "boolean") note.pinned = false;
+    return note;
+  }
+
+  const PINNED_LIMIT = 4;
+  const TASKS_PREVIEW_LIMIT = 5;
 
   let state = loadState();
   let session = loadSession();
@@ -805,11 +813,22 @@
   }
 
   function renderNotes() {
-    $("#noteFiles").innerHTML = state.notes.length
-      ? state.notes.map((n) => `<button class="note-file ${n.id === activeNoteId ? "active" : ""}" data-id="${n.id}">
-          <svg class="icon" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-          <span class="note-file-name">${escapeHtml(n.title)}.md</span>
-        </button>`).join("")
+    // przypięte pierwsze, potem reszta w oryginalnej kolejności
+    const sorted = [...state.notes].sort((a, b) => {
+      const pa = a.pinned ? 1 : 0, pb = b.pinned ? 1 : 0;
+      if (pa !== pb) return pb - pa;
+      return 0;
+    });
+    $("#noteFiles").innerHTML = sorted.length
+      ? sorted.map((n) => `<div class="note-file-row ${n.id === activeNoteId ? "active" : ""}" data-id="${n.id}">
+          <button class="note-file" data-id="${n.id}">
+            <svg class="icon" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+            <span class="note-file-name">${escapeHtml(n.title)}.md</span>
+          </button>
+          <button class="pin-toggle ${n.pinned ? "pinned" : ""}" data-id="${n.id}" title="${n.pinned ? "Odepnij" : "Przypnij do dashboardu"}" aria-label="${n.pinned ? "Odepnij" : "Przypnij"}">
+            <svg class="icon" viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M12 2v7l4 4v3H8v-3l4-4V2z"/><path d="M12 16v6"/></svg>
+          </button>
+        </div>`).join("")
       : `<div class="empty-state" style="padding:20px 10px">// pusto — utwórz plik</div>`;
 
     $$("#noteFiles .note-file").forEach((btn) =>
@@ -818,17 +837,44 @@
         renderNotes();
       })
     );
+    $$("#noteFiles .pin-toggle").forEach((btn) =>
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        togglePin(btn.dataset.id);
+      })
+    );
 
     const note = state.notes.find((n) => n.id === activeNoteId);
     $("#noteEditor").hidden = !note;
     if (note) {
       ensureAttachments(note);
+      ensurePin(note);
       $("#noteTitle").value = note.title;
       $("#noteBody").value = note.body;
+      const pinBtn = $("#pinNoteBtn");
+      pinBtn.classList.toggle("pinned", note.pinned);
+      pinBtn.setAttribute("aria-pressed", note.pinned ? "true" : "false");
+      pinBtn.querySelector(".pin-btn-label").textContent = note.pinned ? "// unpin" : "// pin";
       noteMedia.render();
       setNoteTab("edit");
     }
   }
+
+  function togglePin(id) {
+    const note = state.notes.find((n) => n.id === id);
+    if (!note) return;
+    ensurePin(note);
+    note.pinned = !note.pinned;
+    note.pinnedAt = note.pinned ? Date.now() : null;
+    saveState();
+    toast(note.pinned ? "📌 przypięto ✓" : "// odpięto");
+    if (activeView === "notes") renderNotes();
+    if (activeView === "dashboard") renderDashboard();
+  }
+
+  $("#pinNoteBtn").addEventListener("click", () => {
+    if (activeNoteId) togglePin(activeNoteId);
+  });
 
   /* mini-markdown → HTML (bez zewnętrznych bibliotek) */
   function renderMarkdown(src) {
@@ -1360,6 +1406,12 @@
       t.addEventListener("click", () => showView(t.dataset.tile))
     );
 
+    /* ── pinned/ ── */
+    renderPinnedPanel();
+
+    /* ── tasks preview ── */
+    renderTasksPreview();
+
     /* ── ostatnia aktywność ── */
     const items = [
       ...state.entries.map((e) => ({ ts: e.ts, kind: "entry", id: e.id, msg: e.body.split("\n")[0] })),
@@ -1381,6 +1433,105 @@
     $$("#recentList .recent-item").forEach((el) =>
       el.addEventListener("click", () => openItem(el.dataset.kind, el.dataset.id))
     );
+  }
+
+  function notePreviewSnippet(n) {
+    // pierwsze 1–2 niepuste linijki treści (bez markdownowego szumu w tytułach)
+    const raw = (n.body || "").split("\n").map((l) => l.trim()).filter(Boolean);
+    const lines = raw.slice(0, 2).map((l) => l.replace(/^#{1,3}\s+/, "").replace(/^[-*]\s+/, "• "));
+    return lines.join(" · ") || "// pusty plik";
+  }
+
+  function renderPinnedPanel() {
+    const pinned = state.notes
+      .filter((n) => n.pinned)
+      .sort((a, b) => (b.pinnedAt || 0) - (a.pinnedAt || 0));
+    const shown = pinned.slice(0, PINNED_LIMIT);
+    const overflow = pinned.length - shown.length;
+
+    $("#pinnedCount").textContent = pinned.length ? `// ${pinned.length}` : "";
+    const linkBtn = $("#pinnedAllLink");
+    linkBtn.hidden = overflow <= 0;
+    linkBtn.textContent = `+${overflow} więcej →`;
+
+    $("#pinnedList").innerHTML = shown.length
+      ? shown.map((n) => `<button class="pinned-card" data-id="${n.id}">
+          <span class="pinned-head mono">
+            <svg class="icon" viewBox="0 0 24 24" style="width:11px;height:11px"><path d="M12 2v7l4 4v3H8v-3l4-4V2z"/><path d="M12 16v6"/></svg>
+            <span class="pinned-title">${escapeHtml(n.title)}.md</span>
+            <span class="pinned-unpin" data-unpin="${n.id}" title="Odepnij">// unpin</span>
+          </span>
+          <span class="pinned-snippet">${escapeHtml(notePreviewSnippet(n))}</span>
+        </button>`).join("")
+      : `<div class="empty-state slim">// brak przypiętych notatek — przypnij coś ważnego</div>`;
+
+    $$("#pinnedList .pinned-card").forEach((btn) =>
+      btn.addEventListener("click", (e) => {
+        if (e.target.closest(".pinned-unpin")) return; // klik na unpin nie otwiera notatki
+        openItem("note", btn.dataset.id);
+      })
+    );
+    $$("#pinnedList .pinned-unpin").forEach((el) =>
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const card = el.closest(".pinned-card");
+        if (card) card.classList.add("pin-leave");
+        setTimeout(() => togglePin(el.dataset.unpin), 180);
+      })
+    );
+    if (linkBtn && !linkBtn.dataset.wired) {
+      linkBtn.dataset.wired = "1";
+      linkBtn.addEventListener("click", () => showView("notes"));
+    }
+  }
+
+  function renderTasksPreview() {
+    // in_progress → pending, świeższe wyżej; done pomijamy
+    const openList = state.tasks
+      .filter((t) => t.status !== "done")
+      .sort((a, b) => {
+        if (a.status !== b.status) return a.status === "in_progress" ? -1 : 1;
+        return b.ts - a.ts;
+      });
+    const shown = openList.slice(0, TASKS_PREVIEW_LIMIT);
+    const overflow = openList.length - shown.length;
+
+    $("#tasksPreviewCount").textContent = openList.length ? `// ${openList.length} otwartych` : "";
+    const linkBtn = $("#tasksAllLink");
+    linkBtn.hidden = overflow <= 0;
+    linkBtn.textContent = `+${overflow} więcej →`;
+
+    $("#tasksPreviewList").innerHTML = shown.length
+      ? shown.map((t) => `<div class="tp-row" data-status="${t.status}" data-id="${t.id}">
+          <button class="tp-check" data-cycle="${t.id}" title="→ ${STATUS_NEXT[t.status]}" aria-label="Następny status">${STATUS_MARK[t.status]}</button>
+          <button class="tp-open" data-open="${t.id}">
+            <span class="tp-text">${escapeHtml(t.text)}</span>
+            <span class="tp-status mono">${t.status}</span>
+          </button>
+        </div>`).join("")
+      : (state.tasks.length
+          ? `<div class="empty-state slim">// wszystko zrobione ✓</div>`
+          : `<div class="empty-state slim">// brak zadań — dodaj pierwsze</div>`);
+
+    $$("#tasksPreviewList .tp-check").forEach((btn) =>
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const t = state.tasks.find((x) => x.id === btn.dataset.cycle);
+        if (!t) return;
+        const row = btn.closest(".tp-row");
+        if (row) row.classList.add("tp-flash");
+        setTaskStatus(t.id, STATUS_NEXT[t.status]);
+        // setTaskStatus renderuje sekcję tasks — nasz podgląd też musi się odświeżyć
+        renderTasksPreview();
+      })
+    );
+    $$("#tasksPreviewList .tp-open").forEach((btn) =>
+      btn.addEventListener("click", () => openItem("task", btn.dataset.open))
+    );
+    if (linkBtn && !linkBtn.dataset.wired) {
+      linkBtn.dataset.wired = "1";
+      linkBtn.addEventListener("click", () => showView("tasks"));
+    }
   }
 
   /* ── router renderowania ── */
