@@ -21,7 +21,92 @@
 </head>
 <body>
 
-  <div class="app">
+  <!-- ░░ ekran logowania / rejestracji ░░ -->
+  <div class="auth-screen" id="authScreen" hidden>
+    <div class="auth-box">
+      <div class="auth-logo mono">
+        <span class="logo-mark" aria-hidden="true">▍</span>
+        <span class="logo-name">log.txt</span>
+        <span class="logo-comment">// dziennik myśli</span>
+      </div>
+
+      <!-- ═══ logowanie ═══ -->
+      <form class="auth-form" id="loginForm" data-mode="login">
+        <div class="auth-title mono"><span class="dim">$</span> login</div>
+        <p class="auth-sub mono">// wpisz swoje dane, żeby wejść do dziennika</p>
+
+        <label class="auth-field">
+          <span class="auth-label mono">email:</span>
+          <input type="email" id="loginEmail" autocomplete="email" placeholder="you@example.com_" required>
+        </label>
+
+        <label class="auth-field">
+          <span class="auth-label mono">hasło:</span>
+          <input type="password" id="loginPassword" autocomplete="current-password" placeholder="••••••••_" required>
+        </label>
+
+        <div class="auth-error mono" id="loginError" aria-live="polite"></div>
+
+        <button type="submit" class="btn btn-primary btn-block mono auth-cta">
+          <span class="dim">$</span> zaloguj <span class="auth-arrow">→</span>
+        </button>
+
+        <p class="auth-switch mono">
+          <span class="dim">//</span> nie masz konta?
+          <button type="button" class="auth-link" data-goto="register">utwórz →</button>
+        </p>
+
+        <!-- TODO: usunąć przed wdrożeniem produkcyjnym -->
+        <button type="button" class="auth-dev mono" id="devModeBtn" title="Wejdź bez logowania (dev mode)">
+          <span class="dim">//</span> skip login (dev mode)
+        </button>
+      </form>
+
+      <!-- ═══ rejestracja ═══ -->
+      <form class="auth-form" id="registerForm" data-mode="register" hidden>
+        <div class="auth-title mono"><span class="dim">$</span> register</div>
+        <p class="auth-sub mono">// załóż konto — dane trzymamy lokalnie w przeglądarce</p>
+
+        <label class="auth-field">
+          <span class="auth-label mono">imię:</span>
+          <input type="text" id="regName" autocomplete="given-name" placeholder="jak masz na imię?_" required>
+        </label>
+
+        <label class="auth-field">
+          <span class="auth-label mono">email:</span>
+          <input type="email" id="regEmail" autocomplete="email" placeholder="you@example.com_" required>
+        </label>
+
+        <label class="auth-field">
+          <span class="auth-label mono">hasło:</span>
+          <input type="password" id="regPassword" autocomplete="new-password" placeholder="min. 8 znaków_" required>
+        </label>
+
+        <label class="auth-field">
+          <span class="auth-label mono">powtórz:</span>
+          <input type="password" id="regPassword2" autocomplete="new-password" placeholder="jeszcze raz_" required>
+        </label>
+
+        <div class="auth-error mono" id="registerError" aria-live="polite"></div>
+
+        <button type="submit" class="btn btn-primary btn-block mono auth-cta">
+          <span class="dim">$</span> utwórz konto <span class="auth-arrow">→</span>
+        </button>
+
+        <p class="auth-switch mono">
+          <span class="dim">//</span> masz już konto?
+          <button type="button" class="auth-link" data-goto="login">zaloguj →</button>
+        </p>
+      </form>
+
+      <button type="button" class="auth-theme mono" id="authThemeToggle" aria-label="Przełącz motyw">
+        <svg class="icon icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        <svg class="icon icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="app" id="mainApp" hidden>
 
     <!-- ░░ Sidebar / file explorer ░░ -->
     <aside class="sidebar" id="sidebar">
@@ -72,6 +157,11 @@
           <span class="status-dot" aria-hidden="true"></span>
           <span id="storageStatus">local: ok</span>
         </div>
+        <button class="sidebar-user mono" id="logoutBtn" title="Wyloguj się">
+          <span class="user-prompt dim">user@log:~$</span>
+          <span class="user-name" id="sidebarUserName"></span>
+          <span class="user-logout">// exit</span>
+        </button>
       </div>
     </aside>
 

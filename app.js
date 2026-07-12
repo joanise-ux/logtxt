@@ -9,10 +9,13 @@
   /* ── stan ── */
   const STORAGE_KEY = "logtxt.state.v1";
   const THEME_KEY = "logtxt.theme";
+  const USER_KEY = "logtxt.user.v1";       // { name, email, passwordHash, salt }
+  const SESSION_KEY = "logtxt.session.v1"; // { name, isDev }
 
   const defaultState = { entries: [], moods: [], notes: [], tasks: [], voice: [] };
 
   let state = loadState();
+  let session = loadSession();
 
   function loadState() {
     try {
@@ -43,6 +46,38 @@
     const el = document.getElementById("storageStatus");
     el.textContent = text;
     el.style.color = warn ? "var(--accent-warn)" : "";
+  }
+
+  /* ── sesja / użytkownik ── */
+  function loadSession() {
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
+  function saveSession(s) {
+    session = s;
+    if (s) localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+    else localStorage.removeItem(SESSION_KEY);
+  }
+  function loadUser() {
+    try {
+      const raw = localStorage.getItem(USER_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
+  function saveUser(u) { localStorage.setItem(USER_KEY, JSON.stringify(u)); }
+
+  // hash SHA-256 (localStorage → to nie jest realne bezpieczeństwo, tylko gate UI)
+  async function hashPassword(password, salt) {
+    const data = new TextEncoder().encode(password + ":" + salt);
+    const buf = await crypto.subtle.digest("SHA-256", data);
+    return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  function makeSalt() {
+    const arr = new Uint8Array(12);
+    crypto.getRandomValues(arr);
+    return [...arr].map((b) => b.toString(16).padStart(2, "0")).join("");
   }
 
   /* ── utilsy ── */
@@ -168,6 +203,10 @@
   }
   applyTheme(localStorage.getItem(THEME_KEY) || "dark");
   themeToggle.addEventListener("click", () => {
+    applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+  });
+  // przełącznik motywu też na ekranie logowania — dzieli logikę z paskiem bocznym
+  $("#authThemeToggle").addEventListener("click", () => {
     applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
   });
 
@@ -929,7 +968,9 @@
     const now = new Date();
     const h = now.getHours();
     const title = h < 5 ? "nocna sesja" : h < 12 ? "dzień dobry" : h < 18 ? "witaj z powrotem" : "dobry wieczór";
-    $("#helloTitle").innerHTML = `${title}<span class="cursor" aria-hidden="true">_</span>`;
+    const name = (session && session.name) ? session.name.trim() : "";
+    const namePart = name ? `, ${escapeHtml(name)}` : "";
+    $("#helloTitle").innerHTML = `${title}${namePart}<span class="cursor" aria-hidden="true">_</span>`;
 
     const all = [...state.entries, ...state.moods, ...state.notes, ...state.tasks, ...state.voice];
     const todayK = dayKey(Date.now());
@@ -1028,10 +1069,147 @@
     else if (view === "voice") renderVoice();
   }
 
+  /* ═══════════════ auth: logowanie / rejestracja / dev mode ═══════════════ */
+  const authScreen = $("#authScreen");
+  const mainApp = $("#mainApp");
+  const loginForm = $("#loginForm");
+  const registerForm = $("#registerForm");
+  const loginError = $("#loginError");
+  const registerError = $("#registerError");
+
+  function showAuth(mode = "login") {
+    authScreen.hidden = false;
+    mainApp.hidden = true;
+    switchAuthMode(mode);
+  }
+  function hideAuth() {
+    authScreen.hidden = true;
+    mainApp.hidden = false;
+  }
+  function switchAuthMode(mode) {
+    loginForm.hidden = mode !== "login";
+    registerForm.hidden = mode !== "register";
+    loginError.textContent = "";
+    registerError.textContent = "";
+    // fokus na pierwsze pole
+    setTimeout(() => {
+      const first = (mode === "login" ? loginForm : registerForm).querySelector("input");
+      if (first) first.focus();
+    }, 60);
+  }
+
+  $$(".auth-link").forEach((btn) =>
+    btn.addEventListener("click", () => switchAuthMode(btn.dataset.goto))
+  );
+
+  function isValidEmail(s) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+  }
+
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    loginError.textContent = "";
+    const email = $("#loginEmail").value.trim().toLowerCase();
+    const password = $("#loginPassword").value;
+
+    if (!isValidEmail(email)) {
+      loginError.textContent = "// błąd: niepoprawny adres email";
+      return;
+    }
+    if (password.length < 1) {
+      loginError.textContent = "// błąd: wpisz hasło";
+      return;
+    }
+
+    const user = loadUser();
+    if (!user || user.email !== email) {
+      loginError.textContent = "// błąd: nie znaleziono konta dla tego adresu — utwórz konto";
+      return;
+    }
+    const hash = await hashPassword(password, user.salt);
+    if (hash !== user.passwordHash) {
+      loginError.textContent = "// błąd: nieprawidłowe hasło";
+      return;
+    }
+
+    saveSession({ name: user.name, email: user.email, isDev: false });
+    enterApp();
+    toast(`✓ zalogowano jako ${user.name}`);
+  });
+
+  registerForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    registerError.textContent = "";
+    const name = $("#regName").value.trim();
+    const email = $("#regEmail").value.trim().toLowerCase();
+    const password = $("#regPassword").value;
+    const password2 = $("#regPassword2").value;
+
+    if (name.length < 1) {
+      registerError.textContent = "// błąd: podaj imię";
+      return;
+    }
+    if (!isValidEmail(email)) {
+      registerError.textContent = "// błąd: niepoprawny adres email";
+      return;
+    }
+    if (password.length < 8) {
+      registerError.textContent = "// błąd: hasło musi mieć min. 8 znaków";
+      return;
+    }
+    if (password !== password2) {
+      registerError.textContent = "// błąd: hasła się nie zgadzają";
+      return;
+    }
+
+    const salt = makeSalt();
+    const passwordHash = await hashPassword(password, salt);
+    saveUser({ name, email, passwordHash, salt });
+    saveSession({ name, email, isDev: false });
+    enterApp();
+    toast(`✓ konto utworzone — witaj, ${name}`);
+  });
+
+  // TODO: usunąć przed wdrożeniem produkcyjnym
+  $("#devModeBtn").addEventListener("click", () => {
+    saveSession({ name: "Deweloper", email: "dev@local", isDev: true });
+    enterApp();
+    toast("⚙ tryb deweloperski — pomijam logowanie");
+  });
+
+  $("#logoutBtn").addEventListener("click", () => {
+    saveSession(null);
+    showAuth("login");
+    // wyczyść wrażliwe pola formularza logowania po wylogowaniu
+    $("#loginEmail").value = "";
+    $("#loginPassword").value = "";
+  });
+
+  function refreshSidebarUser() {
+    const nameEl = $("#sidebarUserName");
+    if (!nameEl) return;
+    const label = (session && session.name) ? session.name : "guest";
+    nameEl.textContent = session && session.isDev ? `${label} (dev)` : label;
+  }
+
+  function enterApp() {
+    hideAuth();
+    refreshSidebarUser();
+    showView("dashboard");
+    render("dashboard");
+    drawIdle();
+  }
+
   /* ── start ── */
   renderCounts();
-  render("dashboard");
-  drawIdle();
+  if (session) {
+    hideAuth();
+    refreshSidebarUser();
+    render("dashboard");
+    drawIdle();
+  } else {
+    showAuth("login");
+  }
   setInterval(refreshEntryFilename, 30000);
 
   /* ── PWA: rejestracja service workera (offline + instalacja na telefonie) ── */
