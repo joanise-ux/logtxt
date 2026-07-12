@@ -635,8 +635,8 @@ textarea:focus, input:focus {
    dzięki czemu graf zawsze mieści się w viewport, niezależnie od zakresu (28/45/90 dni) */
 .mood-graph-wrap {
   padding-bottom: 4px;
-  --mood-cell: 44px;
-  --mood-gap: 6px;
+  --mood-cell: 36px;
+  --mood-gap: 5px;
 }
 .mood-dow {
   display: grid;
