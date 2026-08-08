@@ -750,32 +750,47 @@
     renderMood();
   });
 
-  /* dopasowuje rozmiar kafelka moodu do dostępnej wysokości i szerokości —
-     im więcej dni (28/45/90), tym mniejsze kafelki, wszystko musi się zmieścić
-     bez scrolla przy typowych rozmiarach ekranu */
+  /* dopasowuje rozmiar kafelka moodu do szerokości panelu — układ to 7 wierszy
+     (pn..nd) i tydzień na kolumnę, więc kafelek rośnie tak, by tygodnie wypełniły
+     dostępną szerokość. Wysokość (7 wierszy) i tak zostaje stała, ale trzymamy
+     zapas na legendę i listę logów, żeby graf nie wypchnął ich za viewport. */
+  const MOOD_GAP = 5;
+  const MOOD_CELL_MIN = 16;
+  const MOOD_CELL_MAX = 52;
+  // dolna granica budżetu wysokości: przy 7 wierszach graf ma stałą wysokość,
+  // więc nie ma sensu ciąć kafelka pod krótki viewport — panel i tak się scrolluje
+  const MOOD_BUDGET_H_MIN = 360;
+
   function fitMoodGraph() {
     const graph = $("#moodGraph");
+    if (!graph) return;
     const wrap = graph.closest(".mood-graph-wrap");
-    if (!graph || !wrap) return;
-    const cells = graph.children.length;
-    if (!cells) return;
-    const rows = Math.ceil(cells / 7);
-    const cols = 7;
-    const gap = 6;
+    if (!wrap) return;
+    const count = graph.children.length;
+    if (!count) return;
+    const rows = 7;
+    const cols = Math.ceil(count / rows);
+    const gap = MOOD_GAP;
 
     const rect = wrap.getBoundingClientRect();
-    const availableW = rect.width;
-    // budżet wysokości: reszta viewportu poniżej góry siatki minus rezerwa
-    // na legendę, listę logów i margines. Trzymamy graf zwarty, żeby
-    // 28d nie zajmowało pół ekranu.
-    const budgetH = Math.max(110, window.innerHeight - rect.top - 380);
+    // widok ukryty (szerokość 0) — nie ma czego mierzyć, zostaw wartość z CSS
+    if (rect.width < 1) return;
+
+    const dow = wrap.querySelector(".mood-dow");
+    const labelW = dow ? dow.getBoundingClientRect().width + gap : 0;
+    const availableW = rect.width - labelW;
+    const budgetH = Math.max(MOOD_BUDGET_H_MIN, window.innerHeight - rect.top - 160);
 
     const cellFromW = (availableW - (cols - 1) * gap) / cols;
     const cellFromH = (budgetH - (rows - 1) * gap) / rows;
-    // kafelek trzymamy mały — priorytet: zwartość grafu
-    const cell = Math.max(12, Math.floor(Math.min(cellFromW, cellFromH, 30)));
+    const cell = Math.max(
+      MOOD_CELL_MIN,
+      Math.floor(Math.min(cellFromW, cellFromH, MOOD_CELL_MAX))
+    );
 
     wrap.style.setProperty("--mood-cell", cell + "px");
+    // przy ciasnym kafelku numer dnia jest i tak nieczytelny — chowamy go
+    wrap.classList.toggle("compact", cell < 24);
   }
   window.addEventListener("resize", () => { if (activeView === "mood") fitMoodGraph(); });
 

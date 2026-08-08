@@ -631,29 +631,34 @@ textarea:focus, input:focus {
 .mood-cell.l4 { background: var(--mood-4); }
 .mood-cell.l5 { background: var(--mood-5); }
 
-/* siatkę mierzy JS (fitMoodGraph); zmienne --mood-cell steruje wymiarem kafelka,
-   dzięki czemu graf zawsze mieści się w viewport, niezależnie od zakresu (28/45/90 dni) */
+/* Układ „tygodnie w kolumnach”: 7 wierszy (pn..nd), każdy tydzień to kolumna —
+   graf rozciąga się w szerokość, a wysokość jest stała niezależnie od zakresu.
+   Rozmiar kafelka wylicza JS (fitMoodGraph) do zmiennej --mood-cell. */
 .mood-graph-wrap {
   padding-bottom: 4px;
-  --mood-cell: 26px;
-  --mood-gap: 4px;
+  --mood-cell: 34px;
+  --mood-gap: 5px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--mood-gap);
+  align-items: start;
 }
 .mood-dow {
   display: grid;
-  grid-template-columns: repeat(7, var(--mood-cell));
+  grid-template-rows: repeat(7, var(--mood-cell));
   gap: var(--mood-gap);
-  margin-bottom: 6px;
   font-size: 11px;
   color: var(--text-faint);
-  justify-content: center;
+  padding-right: 2px;
 }
-.mood-dow span { text-align: center; }
+.mood-dow span { display: flex; align-items: center; justify-content: flex-end; line-height: 1; }
 .mood-graph {
   display: grid;
-  grid-template-columns: repeat(7, var(--mood-cell));
-  grid-auto-rows: var(--mood-cell);
+  grid-template-rows: repeat(7, var(--mood-cell));
+  grid-auto-flow: column;
+  grid-auto-columns: var(--mood-cell);
   gap: var(--mood-gap);
-  justify-content: center;
+  justify-content: start;
 }
 .mood-day {
   position: relative;
@@ -672,6 +677,7 @@ textarea:focus, input:focus {
   line-height: 1;
   color: var(--text-faint);
 }
+.mood-graph-wrap.compact .mood-day .d { display: none; }
 [data-theme="dark"] .mood-day[data-level] .d { color: rgba(228, 232, 239, 0.78); }
 [data-theme="dark"] .mood-day[data-level="5"] .d { color: rgba(13, 15, 18, 0.65); }
 [data-theme="light"] .mood-day[data-level] .d { color: rgba(45, 58, 71, 0.65); }
