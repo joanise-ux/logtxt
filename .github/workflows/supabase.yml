@@ -31,16 +31,23 @@ jobs:
         with:
           version: latest
 
-      # project_id bierze się z supabase/config.toml
+      # `supabase link` nie czyta project_id z config.toml — wymaga jawnej flagi,
+      # więc wyciągamy referencję z pliku, żeby nie dublować jej w dwóch miejscach
+      - name: Referencja projektu
+        run: |
+          ref="$(sed -n 's/^project_id[[:space:]]*=[[:space:]]*"\(.*\)"/\1/p' supabase/config.toml)"
+          if [ -z "$ref" ]; then echo "::error::brak project_id w supabase/config.toml"; exit 1; fi
+          echo "PROJECT_REF=$ref" >> "$GITHUB_ENV"
+
       - name: Link projektu
-        run: supabase link --password "$SUPABASE_DB_PASSWORD"
+        run: supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
 
       - name: Migracje bazy
-        run: supabase db push --password "$SUPABASE_DB_PASSWORD"
+        run: supabase db push --password "$SUPABASE_DB_PASSWORD" --include-all
 
       # sekret nadpisywany przy każdym wdrożeniu — jedyne miejsce, gdzie żyje klucz Groqa
       - name: Klucz transkrypcji
-        run: supabase secrets set GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}"
+        run: supabase secrets set GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}" --project-ref "$PROJECT_REF"
 
       - name: Edge Function
-        run: supabase functions deploy transcribe
+        run: supabase functions deploy transcribe --project-ref "$PROJECT_REF"
