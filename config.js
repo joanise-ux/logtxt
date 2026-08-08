@@ -12,5 +12,5 @@
 
 window.LOGTXT_CONFIG = {
   url: "https://jxphtmrszmcyzijvjrzc.supabase.co",
-  key: "", // ← wklej tutaj klucz publishable (sb_publishable_... albo eyJ...)
+  key: "sb_publishable_I7MikaBQyQUa-Sd_uMT67g_2BvB7hpD",
 };
