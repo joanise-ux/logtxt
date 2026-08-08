@@ -319,8 +319,187 @@
     $("#topbarDate").textContent = `${days[now.getDay()]} ${fmtDate(now)}`;
   }
 
-  /* ═══════════════ media (zdjęcia + audio w edytorach) ═══════════════ */
+  /* ═══════════════ transkrypcja: Groq Whisper ═══════════════
+     Klucz API należy do użytkownika i leży w localStorage — nagranie leci prosto
+     z przeglądarki do api.groq.com, bez naszego backendu. Endpoint jest zgodny
+     z OpenAI, więc podmiana STT_URL na innego dostawcę (OpenAI, własne proxy)
+     wystarczy do migracji — reszta kodu się nie zmienia.
+     ══════════════════════════════════════════════════════════════ */
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  const STT_CFG_KEY = "logtxt.stt.v1";
+  const STT_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
+  const STT_MODELS_URL = "https://api.groq.com/openai/v1/models";
+  const STT_MODELS = ["whisper-large-v3-turbo", "whisper-large-v3"];
+  const STT_MAX_BYTES = 25 * 1024 * 1024; // limit pliku po stronie Groq
+  const STT_LANG = "pl";
+
+  function loadSttCfg() {
+    try {
+      const cfg = JSON.parse(localStorage.getItem(STT_CFG_KEY) || "{}");
+      return {
+        key: typeof cfg.key === "string" ? cfg.key : "",
+        model: STT_MODELS.includes(cfg.model) ? cfg.model : STT_MODELS[0],
+      };
+    } catch {
+      return { key: "", model: STT_MODELS[0] };
+    }
+  }
+  let sttCfg = loadSttCfg();
+
+  // Groq przejmuje transkrypcję tylko wtedy, gdy użytkownik wpisał klucz;
+  // bez klucza zostajemy przy Web Speech API i nic nie opuszcza urządzenia
+  const sttOn = () => !!sttCfg.key;
+
+  function saveSttCfg(cfg) {
+    sttCfg = cfg;
+    if (cfg.key) localStorage.setItem(STT_CFG_KEY, JSON.stringify(cfg));
+    else localStorage.removeItem(STT_CFG_KEY);
+  }
+
+  function dataUrlToBlob(dataUrl) {
+    const [head, b64] = String(dataUrl).split(",");
+    const mime = (head.match(/:(.*?);/) || [, "audio/webm"])[1];
+    const bin = atob(b64);
+    const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    return new Blob([buf], { type: mime });
+  }
+
+  // komunikaty błędów są pokazywane użytkownikowi wprost, więc po polsku i bez żargonu
+  function sttHttpError(status, detail) {
+    if (status === 401 || status === 403) return "klucz API odrzucony — sprawdź go w konfiguracji";
+    if (status === 413) return "nagranie za duże dla API (limit 25 MB)";
+    if (status === 429) return "limit darmowego tieru wyczerpany — spróbuj za chwilę";
+    if (status >= 500) return "błąd po stronie Groq — spróbuj ponownie";
+    return detail ? `${status}: ${detail}` : `błąd API (${status})`;
+  }
+
+  async function sttTranscribe(blob) {
+    if (!sttOn()) throw new Error("brak klucza API");
+    if (blob.size > STT_MAX_BYTES) throw new Error("nagranie za duże dla API (limit 25 MB)");
+
+    // "audio/webm;codecs=opus" → "webm"; Groq rozpoznaje format po rozszerzeniu
+    const ext = (blob.type.split("/")[1] || "webm").split(";")[0];
+    const fd = new FormData();
+    fd.append("file", new File([blob], `memo.${ext}`, { type: blob.type || "audio/webm" }));
+    fd.append("model", sttCfg.model);
+    fd.append("language", STT_LANG);
+    fd.append("response_format", "json");
+    fd.append("temperature", "0");
+
+    let res;
+    try {
+      res = await fetch(STT_URL, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${sttCfg.key}` },
+        body: fd,
+      });
+    } catch {
+      throw new Error("brak połączenia z api.groq.com");
+    }
+
+    if (!res.ok) {
+      let detail = "";
+      try { detail = (await res.json())?.error?.message || ""; } catch { /* nie-JSON */ }
+      throw new Error(sttHttpError(res.status, detail));
+    }
+    const data = await res.json();
+    return (data.text || "").trim();
+  }
+
+  // sprawdzenie klucza bez wysyłania audio — sama lista modeli
+  async function sttCheckKey(key, model) {
+    let res;
+    try {
+      res = await fetch(STT_MODELS_URL, { headers: { Authorization: `Bearer ${key}` } });
+    } catch {
+      throw new Error("brak połączenia z api.groq.com");
+    }
+    if (!res.ok) {
+      let detail = "";
+      try { detail = (await res.json())?.error?.message || ""; } catch { /* nie-JSON */ }
+      throw new Error(sttHttpError(res.status, detail));
+    }
+    const data = await res.json();
+    const ids = (data.data || []).map((m) => m.id);
+    if (ids.length && !ids.includes(model)) throw new Error(`konto nie ma dostępu do ${model}`);
+    return true;
+  }
+
+  function sttHintText() {
+    if (sttOn()) return `// transkrypcja: groq/${sttCfg.model}`;
+    if (SpeechRec) return "// auto-transkrypcja: on (przeglądarka)";
+    return "// transkrypcja niedostępna — dodaj klucz Groq niżej";
+  }
+
+  /* ── panel konfiguracji (voice/) ── */
+  // odświeżenie badge'a/hintu/listy nagrań po zmianie konfiguracji;
+  // podpinane niżej, bo renderVoice powstaje dopiero w sekcji voice/
+  let sttRefreshUi = () => {};
+
+  {
+    const keyInput = $("#sttKey");
+    const modelSel = $("#sttModel");
+    const statusEl = $("#sttStatus");
+    const badge = $("#sttBadge");
+    const revealBtn = $("#sttReveal");
+
+    function setSttStatus(msg, tone) {
+      statusEl.textContent = msg || "";
+      if (tone) statusEl.dataset.tone = tone;
+      else delete statusEl.dataset.tone;
+    }
+
+    function refreshSttUi() {
+      badge.textContent = sttOn() ? `groq: ${sttCfg.model.replace("whisper-large-", "")}` : "off";
+      badge.dataset.on = sttOn() ? "1" : "0";
+      const hint = $("#transcriptHint");
+      if (hint) hint.textContent = sttHintText();
+      renderVoice();
+    }
+    sttRefreshUi = refreshSttUi;
+
+    keyInput.value = sttCfg.key;
+    modelSel.value = sttCfg.model;
+
+    revealBtn.addEventListener("click", () => {
+      const shown = keyInput.type === "text";
+      keyInput.type = shown ? "password" : "text";
+      revealBtn.textContent = shown ? "show" : "hide";
+    });
+
+    $("#sttSave").addEventListener("click", () => {
+      const key = keyInput.value.trim();
+      const model = STT_MODELS.includes(modelSel.value) ? modelSel.value : STT_MODELS[0];
+      saveSttCfg({ key, model });
+      refreshSttUi();
+      setSttStatus(key ? "// zapisano — groq przejmuje transkrypcję" : "// klucz pusty — wracamy do Web Speech API", key ? "ok" : "");
+      toast(key ? "Zapisano ✓ groq stt enabled" : "Wyłączono groq — transkrypcja lokalna");
+    });
+
+    $("#sttTest").addEventListener("click", async () => {
+      const key = keyInput.value.trim();
+      if (!key) { setSttStatus("// najpierw wklej klucz", "err"); return; }
+      setSttStatus("// sprawdzam klucz...");
+      try {
+        await sttCheckKey(key, modelSel.value);
+        setSttStatus("// klucz działa ✓", "ok");
+      } catch (err) {
+        setSttStatus(`// ${err.message}`, "err");
+      }
+    });
+
+    $("#sttClear").addEventListener("click", () => {
+      saveSttCfg({ key: "", model: sttCfg.model });
+      keyInput.value = "";
+      refreshSttUi();
+      setSttStatus("// usunięto klucz — nic nie wychodzi z urządzenia");
+      toast("Usunięto klucz ✓ local only");
+    });
+  }
+
+  /* ═══════════════ media (zdjęcia + audio w edytorach) ═══════════════ */
   const WAVE_CHARS_STR = "▁▂▃▄▅▆▇█";
 
   function escapeAttr(s) {
@@ -501,7 +680,9 @@
       ana.fftSize = 1024;
       src.connect(ana);
 
-      if (SpeechRec) {
+      // z kluczem Groq transkrybujemy gotowy plik po stopie — rozpoznawanie
+      // w przeglądarce byłoby wtedy tylko gorszym duplikatem
+      if (SpeechRec && !sttOn()) {
         recog = new SpeechRec();
         recog.lang = "pl-PL";
         recog.continuous = true;
@@ -545,29 +726,49 @@
         const blob = new Blob(chunks, { type: mr.mimeType || "audio/webm" });
         const rd = new FileReader();
         const id = uid();
-        const wasTranscribing = !!SpeechRec;
+        const useGroq = sttOn();
+        const wasTranscribing = useGroq || !!SpeechRec;
+
+        // jeśli pole tekstowe jest puste — zaproponuj transkrypcję jako start
+        const seedTextarea = (text) => {
+          const ta = getTextarea();
+          if (ta && !ta.value.trim() && text) {
+            ta.value = text;
+            ta.dispatchEvent(new Event("input"));
+          }
+        };
+
         rd.onload = () => {
           push({
             id, type: "audio", src: rd.result, duration: dur,
-            peaks: sampled, transcript: transcript.trim(),
+            peaks: sampled, transcript: useGroq ? "" : transcript.trim(),
             transcribing: wasTranscribing,
           });
-          if (wasTranscribing) {
-            setHint("// transkrypcja w toku...", true);
-            setTimeout(() => {
-              const finalText = transcript.trim();
-              update(id, { transcript: finalText, transcribing: false });
-              setHint(finalText ? "// transkrypcja gotowa" : "// nie udało się rozpoznać mowy");
-              // jeśli pole tekstowe jest puste — zaproponuj transkrypcję jako start
-              const ta = getTextarea();
-              if (ta && !ta.value.trim() && finalText) {
-                ta.value = finalText;
-                ta.dispatchEvent(new Event("input"));
-              }
-            }, 1500);
-          } else {
+          if (!wasTranscribing) {
             setHint("// zapisano");
+            return;
           }
+          if (useGroq) {
+            setHint("// transkrypcja (groq)...", true);
+            sttTranscribe(blob)
+              .then((text) => {
+                update(id, { transcript: text, transcribing: false });
+                setHint(text ? "// transkrypcja gotowa" : "// nie rozpoznano mowy");
+                seedTextarea(text);
+              })
+              .catch((err) => {
+                update(id, { transcript: "", transcribing: false });
+                setHint(`// groq: ${err.message}`, true);
+              });
+            return;
+          }
+          setHint("// transkrypcja w toku...", true);
+          setTimeout(() => {
+            const finalText = transcript.trim();
+            update(id, { transcript: finalText, transcribing: false });
+            setHint(finalText ? "// transkrypcja gotowa" : "// nie udało się rozpoznać mowy");
+            seedTextarea(finalText);
+          }, 1500);
         };
         rd.readAsDataURL(blob);
       };
@@ -1181,7 +1382,7 @@
   let recognition = null;
   let transcriptText = "";
 
-  $("#transcriptHint").textContent = SpeechRec ? "// auto-transkrypcja: on" : "// transkrypcja niedostępna w tej przeglądarce";
+  $("#transcriptHint").textContent = sttHintText();
 
   function resizeCanvas() {
     canvas.width = canvas.clientWidth * (window.devicePixelRatio || 1);
@@ -1251,7 +1452,8 @@
     analyser.fftSize = 1024;
     source.connect(analyser);
 
-    if (SpeechRec) {
+    // patrz recorder w edytorach: z kluczem Groq transkrypcja idzie z pliku po stopie
+    if (SpeechRec && !sttOn()) {
       recognition = new SpeechRec();
       recognition.lang = "pl-PL";
       recognition.continuous = true;
@@ -1289,14 +1491,16 @@
         sampled.push(Math.min(1, mx * 1.5));
       }
 
+      const useGroq = sttOn();
       const reader = new FileReader();
       reader.onload = () => {
         const memo = {
           id: uid(), ts: Date.now(), duration,
           dataUrl: reader.result,
           peaks: sampled,
-          transcript: transcriptText.trim(),
-          transcribing: !!SpeechRec,
+          transcript: useGroq ? "" : transcriptText.trim(),
+          transcribing: useGroq || !!SpeechRec,
+          sttError: "",
         };
         state.voice.unshift(memo);
         if (saveState()) toast("Zapisano ✓ voice memo committed");
@@ -1304,19 +1508,39 @@
         drawIdle();
         renderVoice();
         renderCounts();
-        if (memo.transcribing) {
-          // rozpoznawanie mowy dosyła końcowe wyniki jeszcze chwilę po stopie
-          recStatus.textContent = "// transkrypcja w toku...";
-          setTimeout(() => {
-            memo.transcribing = false;
-            memo.transcript = transcriptText.trim();
-            saveState();
-            renderVoice();
-            recStatus.textContent = "// gotowy";
-          }, 1500);
-        } else {
+
+        if (!memo.transcribing) {
           recStatus.textContent = "// gotowy";
+          return;
         }
+        if (useGroq) {
+          recStatus.textContent = "// transkrypcja (groq)...";
+          sttTranscribe(blob)
+            .then((text) => {
+              memo.transcript = text;
+              memo.sttError = "";
+              recStatus.textContent = text ? "// gotowy" : "// nie rozpoznano mowy";
+            })
+            .catch((err) => {
+              memo.sttError = err.message;
+              recStatus.textContent = `// groq: ${err.message}`;
+            })
+            .finally(() => {
+              memo.transcribing = false;
+              saveState();
+              renderVoice();
+            });
+          return;
+        }
+        // rozpoznawanie mowy dosyła końcowe wyniki jeszcze chwilę po stopie
+        recStatus.textContent = "// transkrypcja w toku...";
+        setTimeout(() => {
+          memo.transcribing = false;
+          memo.transcript = transcriptText.trim();
+          saveState();
+          renderVoice();
+          recStatus.textContent = "// gotowy";
+        }, 1500);
       };
       reader.readAsDataURL(blob);
     };
@@ -1343,11 +1567,28 @@
   function transcriptBlock(v) {
     if (v.transcribing)
       return `<div class="voice-transcript vt-status mono">// transkrypcja w toku<span class="cursor" aria-hidden="true">_</span></div>`;
+
+    // z kluczem Groq każde nagranie da się przepuścić ponownie — także starsze,
+    // nagrane jeszcze na Web Speech API
+    const redo = sttOn()
+      ? `<button type="button" class="vt-redo mono" data-redo="${v.id}">↻ ${v.transcript ? "transkrybuj ponownie" : "transkrybuj"} (groq)</button>`
+      : "";
+
+    // nieudana próba przy istniejącym tekście: stary tekst zostaje, błąd dopisujemy pod nim
+    const errLine = v.sttError
+      ? `<div class="voice-transcript vt-status mono">// groq: ${escapeHtml(v.sttError)}</div>`
+      : "";
+
     if (v.transcript)
       return `<button type="button" class="voice-transcript vt-toggle" data-id="${v.id}" title="Pokaż całość / zwiń">
           <span class="vt-text">${escapeHtml(v.transcript)}</span>
-        </button>`;
-    return `<div class="voice-transcript vt-status mono">// ${SpeechRec ? "nie udało się rozpoznać mowy" : "transkrypcja niedostępna w tej przeglądarce"}</div>`;
+        </button>${errLine}${redo}`;
+    if (errLine) return `${errLine}${redo}`;
+
+    const why = sttOn() ? "nie rozpoznano mowy"
+      : SpeechRec ? "nie udało się rozpoznać mowy"
+      : "transkrypcja niedostępna w tej przeglądarce";
+    return `<div class="voice-transcript vt-status mono">// ${why}</div>${redo}`;
   }
 
   function renderVoice() {
@@ -1367,6 +1608,27 @@
 
     $$("#voiceList .vt-toggle").forEach((el) =>
       el.addEventListener("click", () => el.classList.toggle("expanded"))
+    );
+
+    $$("#voiceList .vt-redo").forEach((btn) =>
+      btn.addEventListener("click", async () => {
+        const v = state.voice.find((x) => x.id === btn.dataset.redo);
+        if (!v || v.transcribing) return;
+        v.transcribing = true;
+        renderVoice();
+        try {
+          v.transcript = await sttTranscribe(dataUrlToBlob(v.dataUrl));
+          v.sttError = "";
+          toast(v.transcript ? "Transkrypcja gotowa ✓" : "Nie rozpoznano mowy");
+        } catch (err) {
+          v.sttError = err.message;
+          toast(`⚠ groq: ${err.message}`);
+        } finally {
+          v.transcribing = false;
+          saveState();
+          renderVoice();
+        }
+      })
     );
 
     $$("#voiceList .entry-del").forEach((btn) =>
@@ -1780,6 +2042,7 @@
   }
 
   /* ── start ── */
+  sttRefreshUi();
   renderCounts();
   if (session) {
     hideAuth();

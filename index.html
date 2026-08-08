@@ -429,6 +429,42 @@
             </div>
           </div>
 
+          <details class="panel stt-panel" id="sttPanel">
+            <summary class="panel-title mono">
+              <span class="dim">$</span> whisper --config
+              <span class="stt-badge mono" id="sttBadge">off</span>
+            </summary>
+
+            <p class="stt-note mono">
+              // silnik transkrypcji: <strong>Groq</strong> (whisper-large-v3), zamiast wbudowanego w przeglądarkę.<br>
+              // klucz bierzesz z <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer">console.groq.com/keys</a> — darmowy tier z limitem zapytań.<br>
+              // <span class="stt-warn">uwaga:</span> klucz leży w localStorage tej przeglądarki, a nagranie wysyłane jest do Groq.
+              Bez klucza wszystko zostaje na urządzeniu.
+            </p>
+
+            <label class="stt-label mono" for="sttKey">// api key</label>
+            <div class="form-row stt-row">
+              <input type="password" class="mono" id="sttKey" placeholder="gsk_..." autocomplete="off" spellcheck="false">
+              <button type="button" class="btn btn-ghost mono" id="sttReveal" title="Pokaż / ukryj klucz">show</button>
+            </div>
+
+            <label class="stt-label mono" for="sttModel">// model</label>
+            <div class="form-row stt-row">
+              <select class="mono" id="sttModel">
+                <option value="whisper-large-v3-turbo">whisper-large-v3-turbo — szybki, tańszy w limitach</option>
+                <option value="whisper-large-v3">whisper-large-v3 — dokładniejszy, wolniejszy</option>
+              </select>
+            </div>
+
+            <div class="form-row stt-row">
+              <button type="button" class="btn btn-primary mono" id="sttSave">zapisz</button>
+              <button type="button" class="btn btn-ghost mono" id="sttTest">test</button>
+              <button type="button" class="btn btn-ghost mono" id="sttClear">usuń klucz</button>
+              <span class="flex-spacer"></span>
+              <span class="mono dim" id="sttStatus"></span>
+            </div>
+          </details>
+
           <div class="entry-list" id="voiceList"></div>
         </section>
 

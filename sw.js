@@ -33,6 +33,9 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
+  // zapytania do obcych hostów (np. API transkrypcji) idą prosto do sieci —
+  // inaczej offline'owy fallback oddałby im index.html zamiast błędu
+  if (new URL(e.request.url).origin !== location.origin) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {
