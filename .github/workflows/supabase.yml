@@ -1,0 +1,46 @@
+# Wdrożenie backendu na Supabase prosto z repozytorium.
+#
+# Każdy push zmieniający cokolwiek w supabase/ wgrywa nowe migracje do bazy
+# i publikuje Edge Function. Dzięki temu schemat bazy jest wersjonowany w gicie,
+# a nie klikany ręcznie w panelu.
+#
+# Wymagane sekrety repozytorium (Settings → Secrets and variables → Actions):
+#   SUPABASE_ACCESS_TOKEN — token z supabase.com/dashboard/account/tokens
+#   SUPABASE_DB_PASSWORD  — hasło do bazy podane przy tworzeniu projektu
+#   GROQ_API_KEY          — klucz z console.groq.com/keys (wysyłany do sekretów projektu)
+
+name: supabase
+
+on:
+  push:
+    branches: [claude/logtxt-journaling-app-5kl2eh]
+    paths: ["supabase/**", ".github/workflows/supabase.yml"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # project_id bierze się z supabase/config.toml
+      - name: Link projektu
+        run: supabase link --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Migracje bazy
+        run: supabase db push --password "$SUPABASE_DB_PASSWORD"
+
+      # sekret nadpisywany przy każdym wdrożeniu — jedyne miejsce, gdzie żyje klucz Groqa
+      - name: Klucz transkrypcji
+        run: supabase secrets set GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}"
+
+      - name: Edge Function
+        run: supabase functions deploy transcribe

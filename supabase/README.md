@@ -28,14 +28,28 @@ Nagrania przestają być base64 w `localStorage`, więc znika limit ~5 MB i komu
 
 ## Wdrożenie
 
-Migracje są w repo, żeby dało się je odtworzyć na czystym projekcie:
+Backend jedzie z GitHuba: workflow `.github/workflows/supabase.yml` przy każdym
+pushu zmieniającym `supabase/` wgrywa migracje i publikuje Edge Function. Schemat
+bazy jest więc wersjonowany w repo, a nie klikany w panelu.
+
+Do działania potrzebne są trzy sekrety repozytorium
+(*Settings → Secrets and variables → Actions*):
+
+| Sekret | Skąd |
+|--------|------|
+| `SUPABASE_ACCESS_TOKEN` | supabase.com/dashboard/account/tokens |
+| `SUPABASE_DB_PASSWORD` | hasło do bazy podane przy zakładaniu projektu |
+| `GROQ_API_KEY` | console.groq.com/keys |
+
+Klucz Groqa jest ustawiany **raz, w sekretach projektu Supabase** — użytkownicy
+aplikacji nie konfigurują niczego. Nie trafia ani do repozytorium, ani do
+przeglądarki.
+
+Ręcznie to samo:
 
 ```bash
-supabase link --project-ref <ref>
+supabase link          # project_id bierze z config.toml
 supabase db push
-supabase functions deploy transcribe
 supabase secrets set GROQ_API_KEY=gsk_...
+supabase functions deploy transcribe
 ```
-
-Klucz Groqa ustawia się **raz, w sekretach projektu** — użytkownicy aplikacji nie
-konfigurują niczego. Sekret nigdy nie trafia do repozytorium ani do przeglądarki.
