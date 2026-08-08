@@ -1,0 +1,9 @@
+# Konfiguracja Supabase CLI dla log.txt.
+# project_id to referencja projektu z adresu panelu — nie jest sekretem
+# (i tak trafia do przeglądarki w adresie API). Sekrety (klucz Groqa, hasło
+# do bazy, token CLI) trzymamy w sekretach projektu i repozytorium.
+
+project_id = "jxphtmrszmcyzijvjrzc"
+
+[functions.transcribe]
+verify_jwt = true

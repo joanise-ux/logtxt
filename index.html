@@ -33,7 +33,7 @@
       <!-- ═══ logowanie ═══ -->
       <form class="auth-form" id="loginForm" data-mode="login">
         <div class="auth-title mono"><span class="dim">$</span> login</div>
-        <p class="auth-sub mono">// wpisz swoje dane, żeby wejść do dziennika</p>
+        <p class="auth-sub mono">// zaloguj się, żeby wejść do swojego dziennika</p>
 
         <label class="auth-field">
           <span class="auth-label mono">email:</span>
@@ -55,17 +55,12 @@
           <span class="dim">//</span> nie masz konta?
           <button type="button" class="auth-link" data-goto="register">utwórz →</button>
         </p>
-
-        <!-- TODO: usunąć przed wdrożeniem produkcyjnym -->
-        <button type="button" class="auth-dev mono" id="devModeBtn" title="Wejdź bez logowania (dev mode)">
-          <span class="dim">//</span> skip login (dev mode)
-        </button>
       </form>
 
       <!-- ═══ rejestracja ═══ -->
       <form class="auth-form" id="registerForm" data-mode="register" hidden>
         <div class="auth-title mono"><span class="dim">$</span> register</div>
-        <p class="auth-sub mono">// załóż konto — dane trzymamy lokalnie w przeglądarce</p>
+        <p class="auth-sub mono">// załóż konto — wpisy będą dostępne z każdego urządzenia</p>
 
         <label class="auth-field">
           <span class="auth-label mono">imię:</span>
@@ -155,7 +150,7 @@
         </button>
         <div class="sidebar-status">
           <span class="status-dot" aria-hidden="true"></span>
-          <span id="storageStatus">local: ok</span>
+          <span id="storageStatus">sync: —</span>
         </div>
         <button class="sidebar-user mono" id="logoutBtn" title="Wyloguj się">
           <span class="user-prompt dim">user@log:~$</span>
@@ -429,6 +424,7 @@
             </div>
           </div>
 
+
           <div class="entry-list" id="voiceList"></div>
         </section>
 
@@ -447,6 +443,11 @@
 
   <div class="sidebar-scrim" id="scrim"></div>
 
+  <!-- klient Supabase trzymany w repo: bez build stepu i bez zależności od CDN-a,
+       który potrafi paść albo zostać zablokowany, zabierając ze sobą całą apkę -->
+  <script src="vendor/supabase-js-2.58.0.js"></script>
+  <script src="config.js"></script>
+  <script src="db.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

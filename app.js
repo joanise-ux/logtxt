@@ -6,11 +6,12 @@
 (() => {
   "use strict";
 
-  /* ── stan ── */
-  const STORAGE_KEY = "logtxt.state.v1";
+  /* ── stan ──
+     Dane żyją w Supabase; `state` jest kopią roboczą trzymaną w pamięci,
+     z której renderują się wszystkie widoki. Lokalnie zostają wyłącznie
+     ustawienia wyglądu. */
   const THEME_KEY = "logtxt.theme";
-  const USER_KEY = "logtxt.user.v1";       // { name, email, passwordHash, salt }
-  const SESSION_KEY = "logtxt.session.v1"; // { name, isDev }
+  const LEGACY_STATE_KEY = "logtxt.state.v1"; // dane sprzed przejścia na konto
 
   const defaultState = { entries: [], moods: [], notes: [], tasks: [], voice: [] };
 
@@ -28,41 +29,15 @@
   const PINNED_LIMIT = 4;
   const TASKS_PREVIEW_LIMIT = 5;
 
-  let state = loadState();
-  let session = loadSession();
+  let state = structuredClone(defaultState);
+  let session = null; // { name, email } — ustawiane po zalogowaniu w Supabase
 
-  function loadState() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return structuredClone(defaultState);
-      const st = Object.assign(structuredClone(defaultState), JSON.parse(raw));
-      // transkrypcja przerwana przeładowaniem strony nie może wisieć wiecznie
-      for (const v of st.voice) if (v.transcribing) v.transcribing = false;
-      // migracja: jeden mood dziennie — zachowaj najnowszy, resztę odrzuć
-      // (lista jest od najnowszych, więc filtr zostawia pierwsze wystąpienie dnia)
-      const seenDays = new Set();
-      st.moods = st.moods.filter((m) => {
-        const k = `${new Date(m.ts).getFullYear()}-${new Date(m.ts).getMonth()}-${new Date(m.ts).getDate()}`;
-        if (seenDays.has(k)) return false;
-        seenDays.add(k);
-        return true;
-      });
-      return st;
-    } catch {
-      return structuredClone(defaultState);
-    }
-  }
-
+  // Widoki wołają saveState() po każdej zmianie; stąd zmiany trafiają do bazy.
+  // Zapis jest optymistyczny: ekran odświeża się od razu, a wysyłka leci w tle
+  // i sama zgłosi problem w pasku statusu.
   function saveState() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      setStorageStatus("local: ok");
-      return true;
-    } catch {
-      setStorageStatus("local: FULL", true);
-      toast("⚠ storage full — usuń stare nagrania");
-      return false;
-    }
+    LOGTXT.scheduleSync(state);
+    return true;
   }
 
   function setStorageStatus(text, warn) {
@@ -71,43 +46,23 @@
     el.style.color = warn ? "var(--accent-warn)" : "";
   }
 
-  /* ── sesja / użytkownik ── */
-  function loadSession() {
-    try {
-      const raw = localStorage.getItem(SESSION_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
-  }
-  function saveSession(s) {
-    session = s;
-    if (s) localStorage.setItem(SESSION_KEY, JSON.stringify(s));
-    else localStorage.removeItem(SESSION_KEY);
-  }
-  function loadUser() {
-    try {
-      const raw = localStorage.getItem(USER_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
-  }
-  function saveUser(u) { localStorage.setItem(USER_KEY, JSON.stringify(u)); }
-
-  // hash SHA-256 (localStorage → to nie jest realne bezpieczeństwo, tylko gate UI)
-  async function hashPassword(password, salt) {
-    const data = new TextEncoder().encode(password + ":" + salt);
-    const buf = await crypto.subtle.digest("SHA-256", data);
-    return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
-  }
-  function makeSalt() {
-    const arr = new Uint8Array(12);
-    crypto.getRandomValues(arr);
-    return [...arr].map((b) => b.toString(16).padStart(2, "0")).join("");
-  }
+  // o nieudanym zapisie mówimy raz, nie przy każdej próbie ponowienia —
+  // ale mówimy, bo inaczej wpis zostałby tylko w tej karcie
+  let syncBroken = false;
+  LOGTXT.onStatus((text, warn) => {
+    setStorageStatus(text, warn);
+    if (warn && !syncBroken) toast("⚠ nie udało się zapisać — ponawiam");
+    if (warn !== syncBroken && !warn && syncBroken) toast("✓ zapisano po ponowieniu");
+    syncBroken = !!warn;
+  });
 
   /* ── utilsy ── */
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => [...document.querySelectorAll(sel)];
 
-  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  // id nadaje klient, żeby świeży wpis miał tożsamość jeszcze przed zapisem
+  // w bazie — stąd uuid, a nie własny licznik
+  const uid = () => crypto.randomUUID();
 
   // pseudo-hash w stylu gita, deterministyczny dla id
   function hashOf(id) {
@@ -319,8 +274,23 @@
     $("#topbarDate").textContent = `${days[now.getDay()]} ${fmtDate(now)}`;
   }
 
-  /* ═══════════════ media (zdjęcia + audio w edytorach) ═══════════════ */
+  /* ═══════════════ transkrypcja ═══════════════
+     Nagranie idzie do funkcji `transcribe` po stronie Supabase, a ta woła
+     Groq Whisper kluczem trzymanym w sekretach projektu. Użytkownik nie
+     konfiguruje niczego i nie widzi żadnego klucza.
+
+     Rozpoznawanie mowy wbudowane w przeglądarkę zostaje jako zapas na czas,
+     gdy transkrypcja po stronie serwera nie odpowie.
+     ══════════════════════════════════════════════════════════════ */
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  const sttTranscribe = (blob) => LOGTXT.transcribe(blob);
+
+  function sttHintText() {
+    return "// auto-transkrypcja: on";
+  }
+
+  /* ═══════════════ media (zdjęcia + audio w edytorach) ═══════════════ */
   const WAVE_CHARS_STR = "▁▂▃▄▅▆▇█";
 
   function escapeAttr(s) {
@@ -425,18 +395,22 @@
       );
     }
 
+    // zdjęcie ląduje w Storage; w pamięci trzymamy podgląd (blob URL) i ścieżkę,
+    // a do bazy idzie sama ścieżka
     async function addPhotoFile(file) {
       if (!file || !file.type.startsWith("image/")) { setHint("// błąd: to nie jest obraz"); return; }
       const id = uid();
       push({ id, type: "image", src: "", caption: "", loading: true });
       setHint("// przesyłanie zdjęcia...", true);
       try {
-        const src = await fileToDataUrl(file);
-        update(id, { src, loading: false });
+        const ext = (file.type.split("/")[1] || "png").split(";")[0];
+        const path = await LOGTXT.uploadMedia(file, "photo", ext);
+        update(id, { src: URL.createObjectURL(file), path, loading: false });
+        onChange && onChange();
         setHint("// gotowe");
-      } catch {
+      } catch (err) {
         remove(id);
-        setHint("// błąd: nie udało się wczytać", true);
+        setHint(`// błąd: ${err.message}`, true);
       }
     }
 
@@ -445,14 +419,18 @@
       const id = uid();
       push({ id, type: "image", src: "", caption: "", loading: true, loadingMsg: "pobieranie z URL..." });
       setHint("// pobieranie z URL...", true);
-      let src;
       try {
-        src = await fetchUrlAsDataUrl(url);
+        // pobieramy do siebie, żeby zdjęcie nie zniknęło, gdy zniknie źródłowy link
+        const dataUrl = await fetchUrlAsDataUrl(url);
+        const blob = await (await fetch(dataUrl)).blob();
+        const ext = (blob.type.split("/")[1] || "png").split(";")[0];
+        const path = await LOGTXT.uploadMedia(blob, "photo", ext);
+        update(id, { src: URL.createObjectURL(blob), path, loading: false });
       } catch {
-        // CORS / nie-obraz — spróbujmy osadzić link (przeglądarka pobierze przy render)
-        src = url;
+        // CORS albo nie-obraz — zostaje sam link, przeglądarka pobierze go przy renderze
+        update(id, { src: url, path: "", loading: false });
       }
-      update(id, { src, loading: false });
+      onChange && onChange();
       setHint("// gotowe");
     }
 
@@ -501,6 +479,8 @@
       ana.fftSize = 1024;
       src.connect(ana);
 
+      // rozpoznawanie w przeglądarce daje tekst od ręki; dokładniejsza
+      // transkrypcja z serwera nadpisze go po zakończeniu nagrania
       if (SpeechRec) {
         recog = new SpeechRec();
         recog.lang = "pl-PL";
@@ -543,33 +523,48 @@
         }
 
         const blob = new Blob(chunks, { type: mr.mimeType || "audio/webm" });
-        const rd = new FileReader();
         const id = uid();
-        const wasTranscribing = !!SpeechRec;
-        rd.onload = () => {
-          push({
-            id, type: "audio", src: rd.result, duration: dur,
-            peaks: sampled, transcript: transcript.trim(),
-            transcribing: wasTranscribing,
-          });
-          if (wasTranscribing) {
-            setHint("// transkrypcja w toku...", true);
-            setTimeout(() => {
-              const finalText = transcript.trim();
-              update(id, { transcript: finalText, transcribing: false });
-              setHint(finalText ? "// transkrypcja gotowa" : "// nie udało się rozpoznać mowy");
-              // jeśli pole tekstowe jest puste — zaproponuj transkrypcję jako start
-              const ta = getTextarea();
-              if (ta && !ta.value.trim() && finalText) {
-                ta.value = finalText;
-                ta.dispatchEvent(new Event("input"));
-              }
-            }, 1500);
-          } else {
-            setHint("// zapisano");
+
+        // jeśli pole tekstowe jest puste — zaproponuj transkrypcję jako start
+        const seedTextarea = (text) => {
+          const ta = getTextarea();
+          if (ta && !ta.value.trim() && text) {
+            ta.value = text;
+            ta.dispatchEvent(new Event("input"));
           }
         };
-        rd.readAsDataURL(blob);
+
+        (async () => {
+          push({
+            id, type: "audio", src: URL.createObjectURL(blob), path: "", duration: dur,
+            peaks: sampled, transcript: transcript.trim(), transcribing: true,
+          });
+
+          setHint("// zapisywanie nagrania...", true);
+          try {
+            const ext = (blob.type.split("/")[1] || "webm").split(";")[0];
+            const path = await LOGTXT.uploadMedia(blob, "voice", ext);
+            update(id, { path });
+          } catch (err) {
+            update(id, { transcribing: false });
+            setHint(`// błąd: ${err.message}`, true);
+            return;
+          }
+
+          setHint("// transkrypcja...", true);
+          try {
+            const text = await sttTranscribe(blob);
+            update(id, { transcript: text, transcribing: false });
+            setHint(text ? "// transkrypcja gotowa" : "// nie rozpoznano mowy");
+            seedTextarea(text);
+          } catch (err) {
+            // zostaje to, co rozpoznała przeglądarka w trakcie nagrywania
+            const fallback = transcript.trim();
+            update(id, { transcript: fallback, transcribing: false });
+            setHint(`// transkrypcja: ${err.message}`, true);
+            seedTextarea(fallback);
+          }
+        })();
       };
 
       mr.start();
@@ -1181,7 +1176,7 @@
   let recognition = null;
   let transcriptText = "";
 
-  $("#transcriptHint").textContent = SpeechRec ? "// auto-transkrypcja: on" : "// transkrypcja niedostępna w tej przeglądarce";
+  $("#transcriptHint").textContent = sttHintText();
 
   function resizeCanvas() {
     canvas.width = canvas.clientWidth * (window.devicePixelRatio || 1);
@@ -1251,6 +1246,7 @@
     analyser.fftSize = 1024;
     source.connect(analyser);
 
+    // patrz recorder w edytorach: to tekst zapasowy, nadpisywany przez serwer
     if (SpeechRec) {
       recognition = new SpeechRec();
       recognition.lang = "pl-PL";
@@ -1289,36 +1285,49 @@
         sampled.push(Math.min(1, mx * 1.5));
       }
 
-      const reader = new FileReader();
-      reader.onload = () => {
-        const memo = {
-          id: uid(), ts: Date.now(), duration,
-          dataUrl: reader.result,
-          peaks: sampled,
-          transcript: transcriptText.trim(),
-          transcribing: !!SpeechRec,
-        };
-        state.voice.unshift(memo);
-        if (saveState()) toast("Zapisano ✓ voice memo committed");
-        recTimer.textContent = "00:00";
-        drawIdle();
-        renderVoice();
-        renderCounts();
-        if (memo.transcribing) {
-          // rozpoznawanie mowy dosyła końcowe wyniki jeszcze chwilę po stopie
-          recStatus.textContent = "// transkrypcja w toku...";
-          setTimeout(() => {
-            memo.transcribing = false;
-            memo.transcript = transcriptText.trim();
-            saveState();
-            renderVoice();
-            recStatus.textContent = "// gotowy";
-          }, 1500);
-        } else {
-          recStatus.textContent = "// gotowy";
-        }
+      const memo = {
+        id: uid(), ts: Date.now(), duration,
+        src: URL.createObjectURL(blob),
+        path: "",
+        peaks: sampled,
+        transcript: transcriptText.trim(), // zapas z przeglądarki, do nadpisania
+        transcribing: true,
+        sttError: "",
       };
-      reader.readAsDataURL(blob);
+      state.voice.unshift(memo);
+      recTimer.textContent = "00:00";
+      drawIdle();
+      renderVoice();
+      renderCounts();
+
+      // najpierw plik do Storage — bez ścieżki nagranie nie przetrwałoby odświeżenia
+      recStatus.textContent = "// zapisywanie nagrania...";
+      try {
+        const ext = (blob.type.split("/")[1] || "webm").split(";")[0];
+        memo.path = await LOGTXT.uploadMedia(blob, "voice", ext);
+        saveState();
+        toast("Zapisano ✓ voice memo committed");
+      } catch (err) {
+        memo.transcribing = false;
+        memo.sttError = err.message;
+        recStatus.textContent = `// błąd: ${err.message}`;
+        renderVoice();
+        return;
+      }
+
+      recStatus.textContent = "// transkrypcja...";
+      try {
+        memo.transcript = await sttTranscribe(blob);
+        memo.sttError = "";
+        recStatus.textContent = memo.transcript ? "// gotowy" : "// nie rozpoznano mowy";
+      } catch (err) {
+        memo.sttError = err.message;
+        recStatus.textContent = `// transkrypcja: ${err.message}`;
+      } finally {
+        memo.transcribing = false;
+        saveState();
+        renderVoice();
+      }
     };
 
     mediaRecorder.start();
@@ -1343,11 +1352,25 @@
   function transcriptBlock(v) {
     if (v.transcribing)
       return `<div class="voice-transcript vt-status mono">// transkrypcja w toku<span class="cursor" aria-hidden="true">_</span></div>`;
+
+    // każde nagranie da się przepuścić ponownie — także starsze, sprzed przejścia
+    // na transkrypcję po stronie serwera
+    const redo = v.path
+      ? `<button type="button" class="vt-redo mono" data-redo="${v.id}">↻ ${v.transcript ? "transkrybuj ponownie" : "transkrybuj"}</button>`
+      : "";
+
+    // nieudana próba przy istniejącym tekście: stary tekst zostaje, błąd dopisujemy pod nim
+    const errLine = v.sttError
+      ? `<div class="voice-transcript vt-status mono">// ${escapeHtml(v.sttError)}</div>`
+      : "";
+
     if (v.transcript)
       return `<button type="button" class="voice-transcript vt-toggle" data-id="${v.id}" title="Pokaż całość / zwiń">
           <span class="vt-text">${escapeHtml(v.transcript)}</span>
-        </button>`;
-    return `<div class="voice-transcript vt-status mono">// ${SpeechRec ? "nie udało się rozpoznać mowy" : "transkrypcja niedostępna w tej przeglądarce"}</div>`;
+        </button>${errLine}${redo}`;
+    if (errLine) return `${errLine}${redo}`;
+
+    return `<div class="voice-transcript vt-status mono">// nie rozpoznano mowy</div>${redo}`;
   }
 
   function renderVoice() {
@@ -1360,13 +1383,35 @@
             <button class="entry-del" data-id="${v.id}">rm</button>
           </div>
           <div class="voice-wave" aria-hidden="true">${asciiWave(v.peaks || [])}</div>
-          <audio controls preload="none" src="${v.dataUrl}"></audio>
+          <audio controls preload="none" src="${escapeAttr(v.src || "")}"></audio>
           ${transcriptBlock(v)}
         </article>`).join("")
       : `<div class="empty-state">// brak nagrań — naciśnij record i powiedz, co myślisz</div>`;
 
     $$("#voiceList .vt-toggle").forEach((el) =>
       el.addEventListener("click", () => el.classList.toggle("expanded"))
+    );
+
+    $$("#voiceList .vt-redo").forEach((btn) =>
+      btn.addEventListener("click", async () => {
+        const v = state.voice.find((x) => x.id === btn.dataset.redo);
+        if (!v || v.transcribing) return;
+        v.transcribing = true;
+        renderVoice();
+        try {
+          const audio = await (await fetch(v.src)).blob();
+          v.transcript = await sttTranscribe(audio);
+          v.sttError = "";
+          toast(v.transcript ? "Transkrypcja gotowa ✓" : "Nie rozpoznano mowy");
+        } catch (err) {
+          v.sttError = err.message;
+          toast(`⚠ ${err.message}`);
+        } finally {
+          v.transcribing = false;
+          saveState();
+          renderVoice();
+        }
+      })
     );
 
     $$("#voiceList .entry-del").forEach((btn) =>
@@ -1700,20 +1745,18 @@
       return;
     }
 
-    const user = loadUser();
-    if (!user || user.email !== email) {
-      loginError.textContent = "// błąd: nie znaleziono konta dla tego adresu — utwórz konto";
-      return;
+    const btn = loginForm.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    loginError.textContent = "// łączenie...";
+    try {
+      const user = await LOGTXT.auth.signIn(email, password);
+      await enterApp(user);
+      toast(`✓ zalogowano jako ${LOGTXT.auth.name(user)}`);
+    } catch (err) {
+      loginError.textContent = `// błąd: ${err.message}`;
+    } finally {
+      btn.disabled = false;
     }
-    const hash = await hashPassword(password, user.salt);
-    if (hash !== user.passwordHash) {
-      loginError.textContent = "// błąd: nieprawidłowe hasło";
-      return;
-    }
-
-    saveSession({ name: user.name, email: user.email, isDev: false });
-    enterApp();
-    toast(`✓ zalogowano jako ${user.name}`);
   });
 
   registerForm.addEventListener("submit", async (e) => {
@@ -1741,23 +1784,31 @@
       return;
     }
 
-    const salt = makeSalt();
-    const passwordHash = await hashPassword(password, salt);
-    saveUser({ name, email, passwordHash, salt });
-    saveSession({ name, email, isDev: false });
-    enterApp();
-    toast(`✓ konto utworzone — witaj, ${name}`);
+    const btn = registerForm.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    registerError.textContent = "// zakładam konto...";
+    try {
+      const res = await LOGTXT.auth.signUp(email, password, name);
+      // przy włączonym potwierdzaniu adresu konto istnieje, ale sesji jeszcze nie ma
+      if (res.needsConfirmation) {
+        registerError.textContent = "// konto założone — potwierdź adres linkiem z maila, potem zaloguj się";
+        switchAuthMode("login");
+        $("#loginEmail").value = email;
+        return;
+      }
+      await enterApp(res.user);
+      toast(`✓ konto utworzone — witaj, ${name}`);
+    } catch (err) {
+      registerError.textContent = `// błąd: ${err.message}`;
+    } finally {
+      btn.disabled = false;
+    }
   });
 
-  // TODO: usunąć przed wdrożeniem produkcyjnym
-  $("#devModeBtn").addEventListener("click", () => {
-    saveSession({ name: "Deweloper", email: "dev@local", isDev: true });
-    enterApp();
-    toast("⚙ tryb deweloperski — pomijam logowanie");
-  });
-
-  $("#logoutBtn").addEventListener("click", () => {
-    saveSession(null);
+  $("#logoutBtn").addEventListener("click", async () => {
+    await LOGTXT.auth.signOut();
+    session = null;
+    state = structuredClone(defaultState);
     showAuth("login");
     // wyczyść wrażliwe pola formularza logowania po wylogowaniu
     $("#loginEmail").value = "";
@@ -1767,28 +1818,84 @@
   function refreshSidebarUser() {
     const nameEl = $("#sidebarUserName");
     if (!nameEl) return;
-    const label = (session && session.name) ? session.name : "guest";
-    nameEl.textContent = session && session.isDev ? `${label} (dev)` : label;
+    nameEl.textContent = (session && session.name) ? session.name : "guest";
   }
 
-  function enterApp() {
+  // wspólne wejście do aplikacji: zaciąga dane konta, dopiero potem pokazuje ekran
+  async function enterApp(user) {
+    session = { name: LOGTXT.auth.name(user), email: user.email };
     hideAuth();
     refreshSidebarUser();
+    setStorageStatus("sync: wczytywanie...");
+    try {
+      state = await LOGTXT.loadAll();
+      setStorageStatus("sync: ok");
+    } catch (err) {
+      setStorageStatus("sync: błąd", true);
+      toast(`⚠ ${err.message}`);
+    }
     showView("dashboard");
     render("dashboard");
+    renderCounts();
     drawIdle();
+    await offerLegacyImport();
+  }
+
+  /* ── jednorazowy import danych sprzed przejścia na konto ──
+     Stary dziennik siedzi w localStorage tej przeglądarki. Nie kasujemy go
+     po imporcie — zostaje jako kopia, dopóki użytkownik sam nie posprząta. */
+  async function offerLegacyImport() {
+    let legacy;
+    try {
+      legacy = JSON.parse(localStorage.getItem(LEGACY_STATE_KEY) || "null");
+    } catch { return; }
+    if (!legacy) return;
+
+    const counts = ["entries", "moods", "notes", "tasks"]
+      .map((k) => (legacy[k] || []).length);
+    const total = counts.reduce((a, b) => a + b, 0);
+    if (!total) return;
+
+    // nagrania pomijamy: siedzą jako base64 i musiałyby przejść przez Storage,
+    // a przy okazji to one zajmowały najwięcej miejsca
+    const msg = `Znaleziono lokalny dziennik z tej przeglądarki: ${total} wpisów `
+      + `(${counts[0]} entries, ${counts[1]} mood, ${counts[2]} notatek, ${counts[3]} zadań).\n\n`
+      + "Przenieść je na konto? Nagrania głosowe nie zostaną przeniesione.";
+    if (!confirm(msg)) return;
+
+    const have = new Set([...state.entries, ...state.moods, ...state.notes, ...state.tasks].map((i) => i.id));
+    const fresh = (item) => ({ ...item, id: have.has(item.id) ? uid() : item.id });
+
+    for (const e of legacy.entries || []) {
+      // stare załączniki to dataURL-e — bez ścieżki w Storage nie mają jak przetrwać
+      state.entries.push({ ...fresh(e), attachments: [] });
+    }
+    for (const m of legacy.moods || []) state.moods.push(fresh(m));
+    for (const n of legacy.notes || []) state.notes.push({ ...fresh(n), attachments: [] });
+    for (const t of legacy.tasks || []) state.tasks.push(fresh(t));
+
+    const ok = await LOGTXT.syncNow(state);
+    render(activeView);
+    renderCounts();
+    toast(ok ? `✓ przeniesiono ${total} wpisów` : "⚠ część wpisów się nie zapisała");
   }
 
   /* ── start ── */
   renderCounts();
-  if (session) {
-    hideAuth();
-    refreshSidebarUser();
-    render("dashboard");
-    drawIdle();
-  } else {
-    showAuth("login");
-  }
+  (async () => {
+    if (!LOGTXT.configured) {
+      showAuth("login");
+      $("#loginError").textContent = window.supabase
+        ? "// błąd: brak klucza do backendu — uzupełnij config.js"
+        : "// błąd: nie wczytał się klient bazy — odśwież stronę";
+      loginForm.querySelector('button[type="submit"]').disabled = true;
+      return;
+    }
+    // sesja przeżywa odświeżenie strony, więc najpierw pytamy o nią Supabase
+    const user = await LOGTXT.auth.current();
+    if (user) await enterApp(user);
+    else showAuth("login");
+  })();
   setInterval(refreshEntryFilename, 30000);
 
   /* ── PWA: rejestracja service workera (offline + instalacja na telefonie) ── */

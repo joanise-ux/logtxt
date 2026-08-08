@@ -3,12 +3,15 @@
    strategia: network-first z zapasem z cache (działa offline)
    ═══════════════════════════════════════════════════════════════ */
 
-const CACHE = "logtxt-v2";
+const CACHE = "logtxt-v3";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./db.js",
+  "./config.js",
+  "./vendor/supabase-js-2.58.0.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
@@ -33,6 +36,9 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
+  // zapytania do obcych hostów (np. API transkrypcji) idą prosto do sieci —
+  // inaczej offline'owy fallback oddałby im index.html zamiast błędu
+  if (new URL(e.request.url).origin !== location.origin) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {
