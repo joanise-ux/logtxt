@@ -3,12 +3,15 @@
    strategia: network-first z zapasem z cache (działa offline)
    ═══════════════════════════════════════════════════════════════ */
 
-const CACHE = "logtxt-v2";
+const CACHE = "logtxt-v3";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./db.js",
+  "./config.js",
+  "./vendor/supabase-js-2.58.0.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",

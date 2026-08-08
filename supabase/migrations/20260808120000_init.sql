@@ -38,6 +38,7 @@ create table if not exists public.notes (
   title       text not null default '',
   body        text not null default '',
   pinned      boolean not null default false,
+  pinned_at   timestamptz,
   attachments jsonb  not null default '[]'::jsonb,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
@@ -133,19 +134,5 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
-/* ── notes.updated_at odświeżane w bazie, nie w kliencie ── */
-create or replace function public.touch_updated_at()
-returns trigger
-language plpgsql
-set search_path = ''
-as $$
-begin
-  new.updated_at := now();
-  return new;
-end;
-$$;
-
-drop trigger if exists notes_touch_updated_at on public.notes;
-create trigger notes_touch_updated_at
-  before update on public.notes
-  for each row execute function public.touch_updated_at();
+-- `updated_at` ustawia klient (pokazuje je w liście notatek), więc celowo
+-- nie ma tu triggera nadpisującego tę wartość czasem serwera.
