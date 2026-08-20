@@ -170,24 +170,44 @@
   });
 
   /* ── motyw ── */
+  // preferencja: "auto" (za systemem) | "dark" | "light"; data-theme trzyma zawsze
+  // rozwiązany motyw, żeby CSS i ikony nie musiały znać trybu auto
   const themeToggle = $("#themeToggle");
-  function applyTheme(theme) {
+  const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
+  const THEME_CYCLE = { auto: "light", light: "dark", dark: "auto" };
+  const THEME_LABEL = { auto: "auto_mode", light: "light_mode", dark: "dark_mode" };
+  let themePref = "auto";
+
+  function resolveTheme(pref) {
+    return pref === "auto" ? (systemDark.matches ? "dark" : "light") : pref;
+  }
+
+  function applyTheme(pref) {
+    themePref = THEME_LABEL[pref] ? pref : "auto";
+    const theme = resolveTheme(themePref);
     document.documentElement.dataset.theme = theme;
-    themeToggle.querySelector(".theme-label").textContent =
-      theme === "dark" ? "light_mode" : "dark_mode";
-    localStorage.setItem(THEME_KEY, theme);
+    document.documentElement.dataset.themePref = themePref;
+    // etykieta pokazuje aktualny tryb, tytuł podpowiada następny (auto → light → dark → auto)
+    themeToggle.querySelector(".theme-label").textContent = THEME_LABEL[themePref];
+    themeToggle.title = themePref === "auto"
+      ? `motyw: auto (systemowy → ${theme}) — kliknij, aby wybrać ${THEME_CYCLE[themePref]}`
+      : `motyw: ${themePref} — kliknij, aby wybrać ${THEME_CYCLE[themePref]}`;
+    localStorage.setItem(THEME_KEY, themePref);
     // kolor paska systemowego w zainstalowanej apce (PWA)
     document.querySelector('meta[name="theme-color"]')
       .setAttribute("content", theme === "dark" ? "#0d0f12" : "#fff7e6");
   }
-  applyTheme(localStorage.getItem(THEME_KEY) || "dark");
-  themeToggle.addEventListener("click", () => {
-    applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
-  });
+
+  applyTheme(localStorage.getItem(THEME_KEY) || "auto");
+  // zmiana ustawień systemu przestawia motyw w locie, ale tylko w trybie auto
+  const onSystemThemeChange = () => { if (themePref === "auto") applyTheme("auto"); };
+  if (systemDark.addEventListener) systemDark.addEventListener("change", onSystemThemeChange);
+  else systemDark.addListener(onSystemThemeChange); // starsze Safari
+
+  const cycleTheme = () => applyTheme(THEME_CYCLE[themePref]);
+  themeToggle.addEventListener("click", cycleTheme);
   // przełącznik motywu też na ekranie logowania — dzieli logikę z paskiem bocznym
-  $("#authThemeToggle").addEventListener("click", () => {
-    applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
-  });
+  $("#authThemeToggle").addEventListener("click", cycleTheme);
 
   /* ── nawigacja ── */
   let activeView = "dashboard";
