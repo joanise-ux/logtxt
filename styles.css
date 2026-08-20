@@ -1487,7 +1487,11 @@ button.status-head:hover { color: var(--text); }
   letter-spacing: -0.5px;
   color: var(--text);
 }
-.boot-prompt { color: var(--text-faint); font-weight: 400; }
+.boot-prompt {
+  color: var(--text-faint);
+  font-weight: 400;
+  letter-spacing: 1px;
+}
 .boot-name { white-space: pre; }
 .boot-caret {
   color: var(--accent);
