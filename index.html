@@ -38,74 +38,78 @@
       <div class="auth-logo mono">
         <span class="logo-mark" aria-hidden="true">▍</span>
         <span class="logo-name">log.txt</span>
-        <span class="logo-comment">// dziennik myśli</span>
+        <span class="logo-comment" data-i18n="auth.logo.comment">// dziennik myśli</span>
       </div>
 
       <!-- ═══ logowanie ═══ -->
       <form class="auth-form" id="loginForm" data-mode="login">
         <div class="auth-title mono"><span class="dim">$</span> login</div>
-        <p class="auth-sub mono">// zaloguj się, żeby wejść do swojego dziennika</p>
+        <p class="auth-sub mono" data-i18n="auth.login.sub">// zaloguj się, żeby wejść do swojego dziennika</p>
 
         <label class="auth-field">
-          <span class="auth-label mono">email:</span>
+          <span class="auth-label mono" data-i18n="auth.field.email">email:</span>
           <input type="email" id="loginEmail" autocomplete="email" placeholder="you@example.com_" required>
         </label>
 
         <label class="auth-field">
-          <span class="auth-label mono">hasło:</span>
+          <span class="auth-label mono" data-i18n="auth.field.password">hasło:</span>
           <input type="password" id="loginPassword" autocomplete="current-password" placeholder="••••••••_" required>
         </label>
 
         <div class="auth-error mono" id="loginError" aria-live="polite"></div>
 
         <button type="submit" class="btn btn-primary btn-block mono auth-cta">
-          <span class="dim">$</span> zaloguj <span class="auth-arrow">→</span>
+          <span class="dim">$</span> <span data-i18n="auth.login.cta">zaloguj</span> <span class="auth-arrow">→</span>
         </button>
 
         <p class="auth-switch mono">
-          <span class="dim">//</span> nie masz konta?
-          <button type="button" class="auth-link" data-goto="register">utwórz →</button>
+          <span class="dim">//</span> <span data-i18n="auth.login.switch">nie masz konta?</span>
+          <button type="button" class="auth-link" data-goto="register" data-i18n="auth.login.switchLink">utwórz →</button>
         </p>
       </form>
 
       <!-- ═══ rejestracja ═══ -->
       <form class="auth-form" id="registerForm" data-mode="register" hidden>
         <div class="auth-title mono"><span class="dim">$</span> register</div>
-        <p class="auth-sub mono">// załóż konto — wpisy będą dostępne z każdego urządzenia</p>
+        <p class="auth-sub mono" data-i18n="auth.register.sub">// załóż konto — wpisy będą dostępne z każdego urządzenia</p>
 
         <label class="auth-field">
-          <span class="auth-label mono">imię:</span>
-          <input type="text" id="regName" autocomplete="given-name" placeholder="jak masz na imię?_" required>
+          <span class="auth-label mono" data-i18n="auth.field.name">imię:</span>
+          <input type="text" id="regName" autocomplete="given-name" placeholder="jak masz na imię?_" data-i18n-ph="auth.ph.name" required>
         </label>
 
         <label class="auth-field">
-          <span class="auth-label mono">email:</span>
+          <span class="auth-label mono" data-i18n="auth.field.email">email:</span>
           <input type="email" id="regEmail" autocomplete="email" placeholder="you@example.com_" required>
         </label>
 
         <label class="auth-field">
-          <span class="auth-label mono">hasło:</span>
-          <input type="password" id="regPassword" autocomplete="new-password" placeholder="min. 8 znaków_" required>
+          <span class="auth-label mono" data-i18n="auth.field.password">hasło:</span>
+          <input type="password" id="regPassword" autocomplete="new-password" placeholder="min. 8 znaków_" data-i18n-ph="auth.ph.password.min" required>
         </label>
 
         <label class="auth-field">
-          <span class="auth-label mono">powtórz:</span>
-          <input type="password" id="regPassword2" autocomplete="new-password" placeholder="jeszcze raz_" required>
+          <span class="auth-label mono" data-i18n="auth.field.repeat">powtórz:</span>
+          <input type="password" id="regPassword2" autocomplete="new-password" placeholder="jeszcze raz_" data-i18n-ph="auth.ph.password.again" required>
         </label>
 
         <div class="auth-error mono" id="registerError" aria-live="polite"></div>
 
         <button type="submit" class="btn btn-primary btn-block mono auth-cta">
-          <span class="dim">$</span> utwórz konto <span class="auth-arrow">→</span>
+          <span class="dim">$</span> <span data-i18n="auth.register.cta">utwórz konto</span> <span class="auth-arrow">→</span>
         </button>
 
         <p class="auth-switch mono">
-          <span class="dim">//</span> masz już konto?
-          <button type="button" class="auth-link" data-goto="login">zaloguj →</button>
+          <span class="dim">//</span> <span data-i18n="auth.register.switch">masz już konto?</span>
+          <button type="button" class="auth-link" data-goto="login" data-i18n="auth.register.switchLink">zaloguj →</button>
         </p>
       </form>
 
-      <button type="button" class="auth-theme mono" id="authThemeToggle" aria-label="Przełącz motyw">
+      <button type="button" class="auth-lang mono" id="authLangToggle" data-i18n-aria="app.aria.lang" aria-label="Zmień język">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"/></svg>
+        <span class="lang-label">lang: auto</span>
+      </button>
+      <button type="button" class="auth-theme mono" id="authThemeToggle" data-i18n-aria="app.aria.theme" aria-label="Przełącz motyw">
         <svg class="icon icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
         <svg class="icon icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         <svg class="icon icon-auto" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
@@ -117,13 +121,13 @@
 
     <!-- ░░ Sidebar / file explorer ░░ -->
     <aside class="sidebar" id="sidebar">
-      <button class="sidebar-head" id="logoHome" aria-label="Wróć do dashboardu">
+      <button class="sidebar-head" id="logoHome" data-i18n-aria="app.aria.home" aria-label="Wróć do dashboardu">
         <span class="logo-mark" aria-hidden="true">▍</span>
         <span class="logo-name">log.txt</span>
-        <span class="logo-comment">// dziennik</span>
+        <span class="logo-comment" data-i18n="app.logo.comment">// dziennik</span>
       </button>
 
-      <nav class="nav" aria-label="Sekcje">
+      <nav class="nav" data-i18n-aria="app.aria.sections" aria-label="Sekcje">
         <button class="nav-item active" data-view="dashboard">
           <svg class="icon" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
           <span class="nav-label">~/dashboard</span>
@@ -155,17 +159,21 @@
       </nav>
 
       <div class="sidebar-foot">
-        <button class="theme-toggle" id="themeToggle" aria-label="Przełącz motyw">
+        <button class="theme-toggle" id="themeToggle" data-i18n-aria="app.aria.theme" aria-label="Przełącz motyw">
           <svg class="icon icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
           <svg class="icon icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         <svg class="icon icon-auto" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
           <span class="theme-label">auto_mode</span>
         </button>
+        <button class="theme-toggle lang-toggle" id="langToggle" data-i18n-aria="app.aria.lang" aria-label="Zmień język">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"/></svg>
+          <span class="lang-label">lang: auto</span>
+        </button>
         <div class="sidebar-status">
           <span class="status-dot" aria-hidden="true"></span>
           <span id="storageStatus">sync: —</span>
         </div>
-        <button class="sidebar-user mono" id="logoutBtn" title="Wyloguj się">
+        <button class="sidebar-user mono" id="logoutBtn" data-i18n-title="app.logout">
           <span class="user-prompt dim">user@log:~$</span>
           <span class="user-name" id="sidebarUserName"></span>
           <span class="user-logout">// exit</span>
@@ -174,7 +182,7 @@
     </aside>
 
     <!-- ░░ Bottom nav (mobile only) ░░ -->
-    <nav class="bottom-nav" id="bottomNav" aria-label="Nawigacja mobilna">
+    <nav class="bottom-nav" id="bottomNav" data-i18n-aria="app.aria.bottomNav" aria-label="Nawigacja mobilna">
       <button class="bottom-nav-item nav-item active" data-view="dashboard">
         <svg class="icon" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
         <span class="bottom-nav-label">dashboard</span>
@@ -193,12 +201,12 @@
       </button>
       <button type="button" class="bottom-nav-item bottom-nav-more" id="bottomNavMore" aria-haspopup="true" aria-expanded="false" aria-controls="bottomNavSheet">
         <svg class="icon" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
-        <span class="bottom-nav-label">więcej</span>
+        <span class="bottom-nav-label" data-i18n="app.more">więcej</span>
       </button>
     </nav>
 
     <div class="bottom-sheet-scrim" id="bottomSheetScrim"></div>
-    <div class="bottom-sheet" id="bottomNavSheet" role="dialog" aria-label="Więcej sekcji" aria-hidden="true">
+    <div class="bottom-sheet" id="bottomNavSheet" role="dialog" data-i18n-aria="app.aria.moreSections" aria-label="Więcej sekcji" aria-hidden="true">
       <div class="bottom-sheet-handle" aria-hidden="true"></div>
       <div class="bottom-sheet-title mono"><span class="dim">$</span> ls more/</div>
       <div class="bottom-sheet-list">
@@ -214,7 +222,11 @@
           <svg class="icon icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
           <svg class="icon icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
         <svg class="icon icon-auto" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-          <span class="bottom-nav-label">motyw</span>
+          <span class="bottom-nav-label" data-i18n="app.theme">motyw</span>
+        </button>
+        <button type="button" class="bottom-sheet-item bottom-sheet-action" id="bottomLangMirror">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18z"/></svg>
+          <span class="bottom-nav-label lang-label">lang: auto</span>
         </button>
         <button type="button" class="bottom-sheet-item bottom-sheet-action" id="bottomLogoutMirror">
           <svg class="icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
@@ -226,10 +238,10 @@
     <!-- ░░ Main ░░ -->
     <main class="main">
       <header class="topbar">
-        <button class="menu-btn" id="menuBtn" aria-label="Menu">
+        <button class="menu-btn" id="menuBtn" data-i18n-aria="app.aria.menu" aria-label="Menu">
           <svg class="icon" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
         </button>
-        <span class="breadcrumb"><span class="crumb-root">~/dziennik/</span><span id="crumbView">dashboard</span><span class="cursor" aria-hidden="true">_</span></span>
+        <span class="breadcrumb"><span class="crumb-root" data-i18n="app.crumbRoot">~/dziennik/</span><span id="crumbView">dashboard</span><span class="cursor" aria-hidden="true">_</span></span>
         <span class="topbar-date mono" id="topbarDate"></span>
       </header>
 
@@ -242,11 +254,11 @@
             <p class="view-sub" id="helloLine"></p>
           </div>
 
-          <div class="quick-actions mono" aria-label="Szybkie akcje">
-            <button class="qa-btn" data-qa="entry"><span class="qa-key">+</span> nowy wpis</button>
-            <button class="qa-btn" data-qa="mood"><span class="qa-key">+</span> zaznacz nastrój</button>
-            <button class="qa-btn" data-qa="task"><span class="qa-key">+</span> nowe zadanie</button>
-            <button class="qa-btn" data-qa="voice"><span class="qa-key qa-rec">●</span> nagraj notatkę</button>
+          <div class="quick-actions mono" data-i18n-aria="app.aria.quickActions" aria-label="Szybkie akcje">
+            <button class="qa-btn" data-qa="entry"><span class="qa-key">+</span> <span data-i18n="dash.qa.entry">nowy wpis</span></button>
+            <button class="qa-btn" data-qa="mood"><span class="qa-key">+</span> <span data-i18n="dash.qa.mood">zaznacz nastrój</span></button>
+            <button class="qa-btn" data-qa="task"><span class="qa-key">+</span> <span data-i18n="dash.qa.task">nowe zadanie</span></button>
+            <button class="qa-btn" data-qa="voice"><span class="qa-key qa-rec">●</span> <span data-i18n="dash.qa.voice">nagraj notatkę</span></button>
           </div>
 
           <div class="dash-tiles" id="dashTiles"></div>
@@ -256,7 +268,7 @@
               <span class="dim">$</span> cat pinned/*.md
               <span class="dim" id="pinnedCount"></span>
               <span class="flex-spacer"></span>
-              <button type="button" class="panel-link mono" id="pinnedAllLink" hidden>zobacz wszystkie →</button>
+              <button type="button" class="panel-link mono" id="pinnedAllLink" hidden data-i18n="dash.pinned.all">zobacz wszystkie →</button>
             </div>
             <div class="pinned-list" id="pinnedList"></div>
           </div>
@@ -266,7 +278,7 @@
               <span class="dim">$</span> tasks --open
               <span class="dim" id="tasksPreviewCount"></span>
               <span class="flex-spacer"></span>
-              <button type="button" class="panel-link mono" id="tasksAllLink" hidden>zobacz wszystkie zadania →</button>
+              <button type="button" class="panel-link mono" id="tasksAllLink" hidden data-i18n="dash.tasks.all">zobacz wszystkie zadania →</button>
             </div>
             <div class="tasks-preview-list" id="tasksPreviewList"></div>
           </div>
@@ -281,23 +293,23 @@
         <section class="view" data-view="entries">
           <div class="view-head">
             <h1 class="mono">entries/</h1>
-            <p class="view-sub">// twoje wpisy — każdy jak osobny plik</p>
+            <p class="view-sub" data-i18n="entries.sub">// twoje wpisy — każdy jak osobny plik</p>
           </div>
 
           <form class="entry-form panel" id="entryForm">
             <div class="panel-title mono">
-              <span class="dim">$</span> nowy wpis → <span class="accent" id="entryFilename"></span>
+              <span class="dim">$</span> <span data-i18n="entries.newEntry">nowy wpis →</span> <span class="accent" id="entryFilename"></span>
             </div>
-            <textarea id="entryBody" rows="5" placeholder="$ napisz coś..." spellcheck="true"></textarea>
+            <textarea id="entryBody" rows="5" placeholder="$ napisz coś..." data-i18n-ph="entries.ph.body" spellcheck="true"></textarea>
             <div class="media-toolbar mono" data-host="entry">
-              <button type="button" class="media-btn" data-act="photo-file"><span class="mb-ico">+</span> dodaj zdjęcie</button>
-              <button type="button" class="media-btn" data-act="photo-url"><span class="mb-ico">↗</span> z URL</button>
-              <button type="button" class="media-btn media-rec" data-act="rec"><span class="mb-dot"></span> nagraj</button>
+              <button type="button" class="media-btn" data-act="photo-file"><span class="mb-ico">+</span> <span data-i18n="media.addPhoto">dodaj zdjęcie</span></button>
+              <button type="button" class="media-btn" data-act="photo-url"><span class="mb-ico">↗</span> <span data-i18n="media.fromUrl">z URL</span></button>
+              <button type="button" class="media-btn media-rec" data-act="rec"><span class="mb-dot"></span> <span data-i18n="media.record">nagraj</span></button>
               <span class="media-hint dim" data-hint></span>
             </div>
             <div class="media-attachments" id="entryAttachments"></div>
             <div class="form-row">
-              <input type="text" id="entryTags" class="mono" placeholder="#refleksja #praca #pomysł">
+              <input type="text" id="entryTags" class="mono" placeholder="#refleksja #praca #pomysł" data-i18n-ph="entries.ph.tags">
               <button type="submit" class="btn btn-primary mono">git commit</button>
             </div>
             <input type="file" id="entryFileInput" accept="image/jpeg,image/png,image/webp" hidden>
@@ -311,20 +323,20 @@
         <section class="view" data-view="mood">
           <div class="view-head">
             <h1 class="mono">mood.log</h1>
-            <p class="view-sub">// jak się dziś czujesz? zapisz stan procesu</p>
+            <p class="view-sub" data-i18n="mood.sub">// jak się dziś czujesz? zapisz stan procesu</p>
           </div>
 
           <form class="panel mood-form" id="moodForm">
             <div class="panel-title mono"><span class="dim">$</span> mood --set</div>
-            <div class="mood-scale" id="moodScale" role="radiogroup" aria-label="Poziom nastroju">
-              <button type="button" class="mood-btn" data-level="1" aria-label="Bardzo źle"><span class="mood-cell l1"></span><span class="mono">1</span></button>
-              <button type="button" class="mood-btn" data-level="2" aria-label="Słabo"><span class="mood-cell l2"></span><span class="mono">2</span></button>
-              <button type="button" class="mood-btn" data-level="3" aria-label="Neutralnie"><span class="mood-cell l3"></span><span class="mono">3</span></button>
-              <button type="button" class="mood-btn" data-level="4" aria-label="Dobrze"><span class="mood-cell l4"></span><span class="mono">4</span></button>
-              <button type="button" class="mood-btn" data-level="5" aria-label="Świetnie"><span class="mood-cell l5"></span><span class="mono">5</span></button>
+            <div class="mood-scale" id="moodScale" role="radiogroup" data-i18n-aria="mood.aria.scale" aria-label="Poziom nastroju">
+              <button type="button" class="mood-btn" data-level="1" data-i18n-aria="mood.level.1" aria-label="Bardzo źle"><span class="mood-cell l1"></span><span class="mono">1</span></button>
+              <button type="button" class="mood-btn" data-level="2" data-i18n-aria="mood.level.2" aria-label="Słabo"><span class="mood-cell l2"></span><span class="mono">2</span></button>
+              <button type="button" class="mood-btn" data-level="3" data-i18n-aria="mood.level.3" aria-label="Neutralnie"><span class="mood-cell l3"></span><span class="mono">3</span></button>
+              <button type="button" class="mood-btn" data-level="4" data-i18n-aria="mood.level.4" aria-label="Dobrze"><span class="mood-cell l4"></span><span class="mono">4</span></button>
+              <button type="button" class="mood-btn" data-level="5" data-i18n-aria="mood.level.5" aria-label="Świetnie"><span class="mood-cell l5"></span><span class="mono">5</span></button>
             </div>
             <div class="form-row">
-              <input type="text" id="moodNote" placeholder="// krótki kontekst, opcjonalnie">
+              <input type="text" id="moodNote" placeholder="// krótki kontekst, opcjonalnie" data-i18n-ph="mood.ph.note">
               <button type="submit" class="btn btn-primary mono" disabled id="moodSubmit">log mood</button>
             </div>
           </form>
@@ -332,7 +344,7 @@
           <div class="panel">
             <div class="panel-title mono">
               <span class="dim">$</span> mood --graph <span class="dim" id="moodRangeLabel">// ostatnie 28 dni</span>
-              <span class="mood-range" id="moodRange" role="group" aria-label="Zakres grafu">
+              <span class="mood-range" id="moodRange" role="group" data-i18n-aria="mood.aria.range" aria-label="Zakres grafu">
                 <button type="button" class="range-btn" data-days="28">28d</button>
                 <button type="button" class="range-btn" data-days="45">45d</button>
                 <button type="button" class="range-btn" data-days="90">90d</button>
@@ -340,14 +352,14 @@
             </div>
             <div class="mood-graph-wrap">
               <div class="mood-dow mono" aria-hidden="true">
-                <span>pn</span><span>wt</span><span>śr</span><span>cz</span><span>pt</span><span>sb</span><span>nd</span>
+                <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
               </div>
               <div class="mood-graph" id="moodGraph"></div>
             </div>
             <div class="mood-legend mono">
-              <span class="dim">gorzej</span>
+              <span class="dim" data-i18n="mood.worse">gorzej</span>
               <span class="mood-cell l1"></span><span class="mood-cell l2"></span><span class="mood-cell l3"></span><span class="mood-cell l4"></span><span class="mood-cell l5"></span>
-              <span class="dim">lepiej</span>
+              <span class="dim" data-i18n="mood.better">lepiej</span>
             </div>
           </div>
 
@@ -358,36 +370,36 @@
         <section class="view" data-view="notes">
           <div class="view-head">
             <h1 class="mono">notes/</h1>
-            <p class="view-sub">// luźne notatki, markdown-friendly</p>
+            <p class="view-sub" data-i18n="notes.sub">// luźne notatki, markdown-friendly</p>
           </div>
 
           <div class="notes-layout">
             <div class="notes-list-col">
-              <button class="btn btn-primary mono btn-block" id="newNoteBtn">+ touch nowa.md</button>
+              <button class="btn btn-primary mono btn-block" id="newNoteBtn" data-i18n="notes.new">+ touch nowa.md</button>
               <div class="note-files" id="noteFiles"></div>
             </div>
             <div class="note-editor panel" id="noteEditor" hidden>
               <div class="editor-tabs mono">
-                <input type="text" id="noteTitle" class="note-title-input mono" placeholder="nazwa_notatki">
+                <input type="text" id="noteTitle" class="note-title-input mono" placeholder="nazwa_notatki" data-i18n-ph="notes.ph.title">
                 <span class="dim">.md</span>
                 <span class="editor-tab-spacer"></span>
                 <button type="button" class="tab-btn active" id="tabEdit">edit</button>
                 <button type="button" class="tab-btn" id="tabPreview">preview</button>
               </div>
               <div class="md-toolbar mono" id="noteMdToolbar">
-                <button type="button" class="md-btn" data-md="h1" title="Nagłówek">#</button>
-                <button type="button" class="md-btn" data-md="bold" title="Pogrubienie (Ctrl+B)"><strong>B</strong></button>
-                <button type="button" class="md-btn" data-md="italic" title="Kursywa (Ctrl+I)"><em>i</em></button>
-                <button type="button" class="md-btn" data-md="code" title="Kod">`kod`</button>
-                <button type="button" class="md-btn" data-md="list" title="Lista">- lista</button>
-                <button type="button" class="md-btn" data-md="check" title="Checkbox">- [ ]</button>
-                <button type="button" class="md-btn" data-md="quote" title="Cytat">&gt;</button>
+                <button type="button" class="md-btn" data-md="h1" data-i18n-title="notes.md.heading">#</button>
+                <button type="button" class="md-btn" data-md="bold" data-i18n-title="notes.md.bold"><strong>B</strong></button>
+                <button type="button" class="md-btn" data-md="italic" data-i18n-title="notes.md.italic"><em>i</em></button>
+                <button type="button" class="md-btn" data-md="code" data-i18n-title="notes.md.code" data-i18n="notes.md.codeLabel">`kod`</button>
+                <button type="button" class="md-btn" data-md="list" data-i18n-title="notes.md.list" data-i18n="notes.md.listLabel">- lista</button>
+                <button type="button" class="md-btn" data-md="check" data-i18n-title="notes.md.check">- [ ]</button>
+                <button type="button" class="md-btn" data-md="quote" data-i18n-title="notes.md.quote">&gt;</button>
               </div>
-              <textarea id="noteBody" rows="14" placeholder="# nagłówek&#10;&#10;**pogrubienie**, *kursywa*, `kod`&#10;&#10;- lista&#10;- [ ] checkbox" spellcheck="true"></textarea>
+              <textarea id="noteBody" rows="14" placeholder="# nagłówek&#10;&#10;**pogrubienie**, *kursywa*, `kod`&#10;&#10;- lista&#10;- [ ] checkbox" data-i18n-ph="notes.ph.body" spellcheck="true"></textarea>
               <div class="media-toolbar mono" data-host="note">
-                <button type="button" class="media-btn" data-act="photo-file"><span class="mb-ico">+</span> dodaj zdjęcie</button>
-                <button type="button" class="media-btn" data-act="photo-url"><span class="mb-ico">↗</span> z URL</button>
-                <button type="button" class="media-btn media-rec" data-act="rec"><span class="mb-dot"></span> nagraj</button>
+                <button type="button" class="media-btn" data-act="photo-file"><span class="mb-ico">+</span> <span data-i18n="media.addPhoto">dodaj zdjęcie</span></button>
+                <button type="button" class="media-btn" data-act="photo-url"><span class="mb-ico">↗</span> <span data-i18n="media.fromUrl">z URL</span></button>
+                <button type="button" class="media-btn media-rec" data-act="rec"><span class="mb-dot"></span> <span data-i18n="media.record">nagraj</span></button>
                 <span class="media-hint dim" data-hint></span>
               </div>
               <div class="media-attachments" id="noteAttachments"></div>
@@ -396,10 +408,10 @@
                 <button type="button" class="btn btn-ghost mono" id="deleteNoteBtn">rm</button>
                 <button type="button" class="btn btn-ghost mono pin-btn" id="pinNoteBtn" aria-pressed="false">
                   <svg class="icon pin-icon" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M12 2v7l4 4v3H8v-3l4-4V2z"/><path d="M12 16v6"/></svg>
-                  <span class="pin-btn-label">// pin</span>
+                  <span class="pin-btn-label" data-i18n="notes.pin">// pin</span>
                 </button>
                 <span class="flex-spacer"></span>
-                <button type="button" class="btn btn-primary mono" id="saveNoteBtn">:w zapisz</button>
+                <button type="button" class="btn btn-primary mono" id="saveNoteBtn" data-i18n="notes.save">:w zapisz</button>
               </div>
               <input type="file" id="noteFileInput" accept="image/jpeg,image/png,image/webp" hidden>
             </div>
@@ -410,15 +422,15 @@
         <section class="view" data-view="tasks">
           <div class="view-head">
             <h1 class="mono">tasks.todo</h1>
-            <p class="view-sub">// zadania posegregowane wg statusu: in_progress → pending → done</p>
+            <p class="view-sub" data-i18n="tasks.sub">// zadania posegregowane wg statusu: in_progress → pending → done</p>
           </div>
 
           <form class="panel" id="taskForm">
             <div class="panel-title mono"><span class="dim">$</span> task add</div>
             <div class="form-row">
               <span class="mono dim task-prefix">- [ ]</span>
-              <input type="text" id="taskText" placeholder="$ nowe zadanie...">
-              <input type="text" id="taskSprint" class="mono sprint-input" placeholder="sprint" list="sprintList">
+              <input type="text" id="taskText" placeholder="$ nowe zadanie..." data-i18n-ph="tasks.ph.text">
+              <input type="text" id="taskSprint" class="mono sprint-input" placeholder="sprint" data-i18n-ph="tasks.ph.sprint" list="sprintList">
               <datalist id="sprintList"></datalist>
               <button type="submit" class="btn btn-primary mono">add</button>
             </div>
@@ -431,11 +443,11 @@
         <section class="view" data-view="voice">
           <div class="view-head">
             <h1 class="mono">voice/</h1>
-            <p class="view-sub">// notatki głosowe — nagraj i wróć do nich później</p>
+            <p class="view-sub" data-i18n="voice.sub">// notatki głosowe — nagraj i wróć do nich później</p>
           </div>
 
           <div class="panel voice-recorder">
-            <div class="panel-title mono"><span class="dim">$</span> rec --mic <span id="recStatus" class="dim">// gotowy</span></div>
+            <div class="panel-title mono"><span class="dim">$</span> rec --mic <span id="recStatus" class="dim" data-i18n="voice.ready">// gotowy</span></div>
             <canvas id="waveCanvas" class="wave-canvas" height="80"></canvas>
             <div class="form-row voice-controls">
               <button type="button" class="btn btn-primary mono" id="recBtn">
@@ -458,8 +470,8 @@
   <div class="toast mono" id="toast" role="status" aria-live="polite"></div>
 
   <div class="undo-bar mono" id="undoBar" role="status" aria-live="polite">
-    <span class="undo-msg"><span class="dim">//</span> usunięto <span class="undo-title" id="undoTitle"></span> —</span>
-    <button type="button" class="undo-btn" id="undoBtn">[cofnij]</button>
+    <span class="undo-msg"><span class="dim">//</span> <span data-i18n="app.undo.deleted">usunięto</span> <span class="undo-title" id="undoTitle"></span> —</span>
+    <button type="button" class="undo-btn" id="undoBtn" data-i18n="app.undo.btn">[cofnij]</button>
     <span class="undo-count dim" id="undoCount">15s</span>
     <span class="undo-progress" aria-hidden="true"><span class="undo-progress-fill" id="undoFill"></span></span>
   </div>
@@ -469,6 +481,7 @@
   <!-- klient Supabase trzymany w repo: bez build stepu i bez zależności od CDN-a,
        który potrafi paść albo zostać zablokowany, zabierając ze sobą całą apkę -->
   <script src="vendor/supabase-js-2.58.0.js"></script>
+  <script src="i18n.js"></script>
   <script src="config.js"></script>
   <script src="db.js"></script>
   <script src="app.js"></script>

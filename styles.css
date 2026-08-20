@@ -1589,7 +1589,8 @@ button.status-head:hover { color: var(--text); }
   background: color-mix(in srgb, var(--accent-warn) 8%, transparent);
 }
 
-.auth-theme {
+.auth-theme,
+.auth-lang {
   position: fixed;
   top: 18px;
   right: 20px;
@@ -1604,7 +1605,14 @@ button.status-head:hover { color: var(--text); }
   transition: color 0.2s var(--ease), border-color 0.2s var(--ease);
   z-index: 210;
 }
-.auth-theme:hover { color: var(--accent); border-color: var(--accent); }
+.auth-theme:hover,
+.auth-lang:hover { color: var(--accent); border-color: var(--accent); }
+/* przełącznik języka siedzi po lewej stronie przełącznika motywu */
+.auth-lang { right: 66px; font-size: 12px; }
+.auth-lang .icon { width: 14px; height: 14px; }
+
+/* przełącznik języka w sidebarze dzieli wygląd z przełącznikiem motywu */
+.lang-toggle .lang-label { font-family: var(--font-mono); }
 
 @media (max-width: 480px) {
   .auth-box { max-width: 100%; }

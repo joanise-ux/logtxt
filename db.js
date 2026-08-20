@@ -210,7 +210,7 @@ window.LOGTXT = (() => {
 
   async function syncNow(state) {
     if (!sb || !userId) return;
-    onStatus("sync: ...");
+    onStatus("app.sync.pending");
     const failed = [];
     for (const coll of COLLECTIONS) {
       try {
@@ -220,7 +220,7 @@ window.LOGTXT = (() => {
       }
     }
     if (failed.length) {
-      onStatus("sync: błąd", true);
+      onStatus("app.sync.error", true);
       console.error("[logtxt] synchronizacja nieudana —", failed.join("; "));
       // snapshot nie ruszył się dla nieudanych kolekcji, więc ponowienie wyśle
       // dokładnie te same zmiany — inaczej wpis zostałby tylko w pamięci karty
@@ -228,7 +228,7 @@ window.LOGTXT = (() => {
       retryTimer = setTimeout(() => scheduleSync(state), RETRY_MS);
       return false;
     }
-    onStatus("sync: ok");
+    onStatus("app.sync.ok");
     return true;
   }
 
