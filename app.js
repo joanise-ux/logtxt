@@ -900,6 +900,7 @@
     $("#noteBody").hidden = tab !== "edit";
     $("#notePreview").hidden = tab !== "preview";
     // toolbar/attachments widoczne tylko w trybie edycji (podgląd pokazuje osadzone media inline)
+    $("#noteMdToolbar").style.display = tab === "edit" ? "" : "none";
     document.querySelector('.media-toolbar[data-host="note"]').style.display = tab === "edit" ? "" : "none";
     $("#noteAttachments").style.display = tab === "edit" ? "" : "none";
     if (tab === "preview") {
@@ -908,8 +909,110 @@
         ? `<div class="media-attachments media-view">${renderAttachmentsList(n.attachments, { editable: false })}</div>`
         : "";
       $("#notePreview").innerHTML = renderMarkdown($("#noteBody").value) + attHtml;
+      bindPreviewChecks();
     }
   }
+
+  // checkboxy w podglądzie są klikalne — przełączają [ ] ↔ [x] w źródle notatki
+  function bindPreviewChecks() {
+    $$("#notePreview .md-check .box").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const ta = $("#noteBody");
+        const idx = Number(btn.dataset.line);
+        const lines = ta.value.split("\n");
+        if (!lines[idx]) return;
+        lines[idx] = lines[idx].replace(/^(\s*[-*]\s*\[)([ x~])(\])/i, (all, a, mark, b) =>
+          a + (mark.toLowerCase() === "x" ? " " : "x") + b);
+        ta.value = lines.join("\n");
+        const note = state.notes.find((n) => n.id === activeNoteId);
+        if (note) {
+          note.body = ta.value;
+          note.updated = Date.now();
+          saveState();
+        }
+        setNoteTab("preview");
+      })
+    );
+  }
+
+  /* ── pasek markdown + skróty klawiszowe w edytorze notatki ── */
+  function mdApply(kind) {
+    const ta = $("#noteBody");
+    const val = ta.value;
+    let start = ta.selectionStart, end = ta.selectionEnd;
+
+    const wrap = (mark, placeholder) => {
+      const sel = val.slice(start, end) || placeholder;
+      const before = val.slice(0, start), after = val.slice(end);
+      // drugie kliknięcie zdejmuje formatowanie
+      if (before.endsWith(mark) && after.startsWith(mark)) {
+        ta.value = before.slice(0, -mark.length) + sel + after.slice(mark.length);
+        setSel(start - mark.length, start - mark.length + sel.length);
+        return;
+      }
+      ta.value = before + mark + sel + mark + after;
+      setSel(start + mark.length, start + mark.length + sel.length);
+    };
+
+    const linePrefix = (prefix, re, stripRe) => {
+      const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+      let lineEnd = val.indexOf("\n", end);
+      if (lineEnd === -1) lineEnd = val.length;
+      const block = val.slice(lineStart, lineEnd);
+      const lines = block.split("\n");
+      const allOn = lines.every((l) => re.test(l));
+      const out = lines
+        .map((l) => (allOn ? l.replace(re, "") : prefix + (stripRe ? l.replace(stripRe, "") : l)))
+        .join("\n");
+      ta.value = val.slice(0, lineStart) + out + val.slice(lineEnd);
+      setSel(lineStart, lineStart + out.length);
+    };
+
+    const setSel = (a, b) => { ta.focus(); ta.setSelectionRange(a, b); };
+
+    if (kind === "bold") wrap("**", "pogrubienie");
+    else if (kind === "italic") wrap("*", "kursywa");
+    else if (kind === "code") wrap("`", "kod");
+    else if (kind === "h1") linePrefix("# ", /^#{1,6}\s*/);
+    else if (kind === "list") linePrefix("- ", /^\s*[-*]\s+/);
+    else if (kind === "check") linePrefix("- [ ] ", /^\s*[-*]\s*\[[ x~]\]\s*/i, /^\s*[-*]\s+/);
+    else if (kind === "quote") linePrefix("> ", /^\s*>\s?/);
+
+    ta.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  $$("#noteMdToolbar .md-btn").forEach((btn) =>
+    btn.addEventListener("click", () => mdApply(btn.dataset.md))
+  );
+
+  $("#noteBody").addEventListener("keydown", (e) => {
+    const ta = e.target;
+    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+      const key = e.key.toLowerCase();
+      const map = { b: "bold", i: "italic", e: "code" };
+      if (map[key]) { e.preventDefault(); mdApply(map[key]); return; }
+    }
+    if (e.key !== "Enter" || e.shiftKey) return;
+    // auto-kontynuacja list i checkboxów
+    const val = ta.value, pos = ta.selectionStart;
+    if (pos !== ta.selectionEnd) return;
+    const lineStart = val.lastIndexOf("\n", pos - 1) + 1;
+    const line = val.slice(lineStart, pos);
+    const m = line.match(/^(\s*[-*]\s*\[[ x~]\]\s+|\s*[-*]\s+)(.*)$/i);
+    if (!m) return;
+    e.preventDefault();
+    if (!m[2].trim()) {
+      // pusty punkt → kończymy listę
+      ta.value = val.slice(0, lineStart) + val.slice(pos);
+      ta.setSelectionRange(lineStart, lineStart);
+    } else {
+      const prefix = m[1].replace(/\[[x~]\]/i, "[ ]");
+      const ins = "\n" + prefix;
+      ta.value = val.slice(0, pos) + ins + val.slice(pos);
+      ta.setSelectionRange(pos + ins.length, pos + ins.length);
+    }
+    ta.dispatchEvent(new Event("input", { bubbles: true }));
+  });
 
   function renderNotes() {
     // przypięte pierwsze, potem reszta w oryginalnej kolejności
@@ -982,17 +1085,19 @@
     let inList = false;
     const closeList = () => { if (inList) { html += "</ul>"; inList = false; } };
 
-    for (const line of lines) {
+    lines.forEach((line, idx) => {
       let m;
-      if ((m = line.match(/^(#{1,3})\s+(.*)/))) {
+      if ((m = line.match(/^(#{1,6})\s*(.*)/))) {
         closeList();
         const lvl = m[1].length;
         html += `<h${lvl}>${inline(m[2])}</h${lvl}>`;
-      } else if ((m = line.match(/^-\s+\[( |x)\]\s+(.*)/i))) {
+      } else if ((m = line.match(/^\s*[-*]\s*\[([ x~])\]\s*(.*)$/i))) {
         if (!inList) { html += "<ul>"; inList = true; }
-        const done = m[1].toLowerCase() === "x";
-        html += `<li class="md-check"><span class="box">- [${done ? "x" : "&nbsp;"}]</span> ${done ? "<s>" : ""}${inline(m[2])}${done ? "</s>" : ""}</li>`;
-      } else if ((m = line.match(/^[-*]\s+(.*)/))) {
+        const mark = m[1].toLowerCase();
+        const done = mark === "x";
+        const box = mark === "~" ? "~" : done ? "x" : "&nbsp;";
+        html += `<li class="md-check${done ? " done" : ""}" data-line="${idx}"><button type="button" class="box" data-line="${idx}" aria-pressed="${done}">- [${box}]</button> ${done ? "<s>" : ""}${inline(m[2])}${done ? "</s>" : ""}</li>`;
+      } else if ((m = line.match(/^\s*[-*]\s+(.*)/))) {
         if (!inList) { html += "<ul>"; inList = true; }
         html += `<li>${inline(m[1])}</li>`;
       } else if ((m = line.match(/^&gt;\s?(.*)/))) {
@@ -1004,7 +1109,7 @@
         closeList();
         html += `<p>${inline(line)}</p>`;
       }
-    }
+    });
     closeList();
     return html || `<p class="dim">// pusty plik</p>`;
 
