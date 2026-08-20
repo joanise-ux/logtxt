@@ -35,6 +35,13 @@
   --glow-2: 0 0 14px rgba(167, 139, 250, 0.25);
   --shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
   --mood-1: #3b2d4f; --mood-2: #4c3a75; --mood-3: #6d5bb0; --mood-4: #8f7ae0; --mood-5: #4ade80;
+  /* kolory kategorii zadań */
+  --st-pending: #7f93b5;      /* chłodny stalowy błękit */
+  --st-pending-bg: rgba(127, 147, 181, 0.12);
+  --st-progress: #fbbf24;     /* bursztyn — trwa */
+  --st-progress-bg: rgba(251, 191, 36, 0.13);
+  --st-done: #4ade80;         /* zieleń — zrobione */
+  --st-done-bg: rgba(74, 222, 128, 0.12);
   --scrim: rgba(6, 8, 10, 0.6);
 }
 
@@ -63,6 +70,13 @@
   --glow-2: 0 0 12px rgba(247, 200, 211, 0.70);
   --shadow: 0 6px 22px rgba(45, 58, 71, 0.10);
   --mood-1: #b46a72; --mood-2: #d89aa3; --mood-3: #f7c8d3; --mood-4: #c9d2ac; --mood-5: #a8b58a;
+  /* kolory kategorii zadań */
+  --st-pending: #64798f;      /* misty sky, przyciemniony */
+  --st-pending-bg: rgba(169, 183, 198, 0.26);
+  --st-progress: #b46a72;     /* rosewood — trwa */
+  --st-progress-bg: rgba(247, 200, 211, 0.46);
+  --st-done: #6d8a4a;         /* sage leaf, przyciemniony */
+  --st-done-bg: rgba(168, 181, 138, 0.30);
   --scrim: rgba(45, 58, 71, 0.38);
 }
 
@@ -500,7 +514,13 @@ textarea:focus, input:focus {
   animation: viewIn 0.28s var(--ease);
 }
 .tp-row:hover { background: var(--bg-raised); }
-.tp-row[data-status="in_progress"] { border-color: color-mix(in srgb, var(--accent) 22%, transparent); background: color-mix(in srgb, var(--accent-bg) 60%, transparent); }
+.tp-row[data-status="pending"] { border-left: 2px solid color-mix(in srgb, var(--st-pending) 60%, transparent); }
+.tp-row[data-status="in_progress"] {
+  border-color: color-mix(in srgb, var(--st-progress) 26%, transparent);
+  border-left: 2px solid var(--st-progress);
+  background: color-mix(in srgb, var(--st-progress-bg) 60%, transparent);
+}
+.tp-row[data-status="done"] { border-left: 2px solid color-mix(in srgb, var(--st-done) 70%, transparent); }
 .tp-check {
   font-family: var(--font-mono);
   font-size: 12.5px;
@@ -509,8 +529,9 @@ textarea:focus, input:focus {
   border-radius: 3px;
   transition: color 0.18s var(--ease), box-shadow 0.18s var(--ease);
 }
-.tp-row[data-status="pending"] .tp-check { color: var(--text-faint); }
-.tp-row[data-status="in_progress"] .tp-check { color: var(--accent-warn); }
+.tp-row[data-status="pending"] .tp-check { color: var(--st-pending); }
+.tp-row[data-status="in_progress"] .tp-check { color: var(--st-progress); }
+.tp-row[data-status="done"] .tp-check { color: var(--st-done); }
 .tp-check:hover { color: var(--accent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent); }
 .tp-open {
   flex: 1;
@@ -534,7 +555,9 @@ textarea:focus, input:focus {
   background: var(--bg-raised);
   flex-shrink: 0;
 }
-.tp-row[data-status="in_progress"] .tp-status { color: var(--accent); background: var(--accent-bg); }
+.tp-row[data-status="pending"] .tp-status { color: var(--st-pending); background: var(--st-pending-bg); }
+.tp-row[data-status="in_progress"] .tp-status { color: var(--st-progress); background: var(--st-progress-bg); }
+.tp-row[data-status="done"] .tp-status { color: var(--st-done); background: var(--st-done-bg); }
 @keyframes tpFlash {
   0% { background: color-mix(in srgb, var(--accent) 30%, transparent); }
   100% { background: transparent; }
@@ -844,25 +867,43 @@ textarea:focus, input:focus {
   margin-bottom: 8px;
   text-align: left;
 }
-.status-group[data-status="in_progress"] .status-head { color: var(--accent); }
-.status-group[data-status="in_progress"] .task-item {
-  border-color: color-mix(in srgb, var(--accent) 25%, var(--border-soft));
-}
-.status-count { font-size: 11px; color: var(--text-faint); }
-.status-head .caret { font-size: 11px; color: var(--text-faint); }
+/* nagłówki sekcji — każdy status ma swój kolor */
+.status-group[data-status="pending"] .status-head { color: var(--st-pending); }
+.status-group[data-status="in_progress"] .status-head { color: var(--st-progress); }
+.status-group[data-status="done"] .status-head { color: var(--st-done); }
+.status-count { font-size: 11px; color: currentColor; opacity: 0.55; }
+.status-head .caret { font-size: 11px; color: currentColor; opacity: 0.6; }
 button.status-head { cursor: pointer; transition: color 0.2s var(--ease); }
 button.status-head:hover { color: var(--text); }
 .empty-state.slim { padding: 8px 14px; font-size: 12px; text-align: left; }
+.status-group[data-status="pending"] .empty-state.slim { color: color-mix(in srgb, var(--st-pending) 55%, var(--text-faint)); }
+.status-group[data-status="in_progress"] .empty-state.slim { color: color-mix(in srgb, var(--st-progress) 55%, var(--text-faint)); }
+.status-group[data-status="done"] .empty-state.slim { color: color-mix(in srgb, var(--st-done) 55%, var(--text-faint)); }
 
 .task-item {
   position: relative;
   display: flex; align-items: flex-start; gap: 12px;
-  padding: 9px 14px;
+  padding: 9px 14px 9px 12px;
   background: var(--bg-panel);
   border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--st-pending);
   border-radius: var(--radius-sm);
   margin-bottom: 6px;
   transition: opacity 0.2s var(--ease), transform 0.2s var(--ease), background 0.35s var(--ease), border-color 0.35s var(--ease);
+}
+/* pasek + tło wg kategorii */
+.task-item[data-status="pending"] {
+  border-color: color-mix(in srgb, var(--st-pending) 18%, var(--border-soft));
+  border-left-color: var(--st-pending);
+}
+.task-item[data-status="in_progress"] {
+  border-color: color-mix(in srgb, var(--st-progress) 32%, var(--border-soft));
+  border-left-color: var(--st-progress);
+  background: color-mix(in srgb, var(--st-progress-bg) 70%, var(--bg-panel));
+}
+.task-item[data-status="done"] {
+  border-color: color-mix(in srgb, var(--st-done) 22%, var(--border-soft));
+  border-left-color: var(--st-done);
 }
 /* animacja przeniesienia między sekcjami */
 .task-leave { opacity: 0 !important; transform: translateY(-8px); }
@@ -876,11 +917,11 @@ button.status-head:hover { color: var(--text); }
   flex-shrink: 0;
   transition: color 0.2s var(--ease);
 }
-.task-item[data-status="pending"] .task-check { color: var(--text-faint); }
-.task-item[data-status="in_progress"] .task-check { color: var(--accent-warn); }
-.task-item[data-status="done"] .task-check { color: var(--accent); }
+.task-item[data-status="pending"] .task-check { color: var(--st-pending); }
+.task-item[data-status="in_progress"] .task-check { color: var(--st-progress); }
+.task-item[data-status="done"] .task-check { color: var(--st-done); }
 .task-text { flex: 1; font-size: 14px; padding-top: 1px; }
-.task-item[data-status="done"] { opacity: 0.55; }
+.task-item[data-status="done"] { opacity: 0.7; }
 .task-item[data-status="done"] .task-text { text-decoration: line-through; text-decoration-color: var(--text-faint); }
 
 .task-sprint {
@@ -902,9 +943,18 @@ button.status-head:hover { color: var(--text); }
   cursor: pointer;
   transition: box-shadow 0.2s var(--ease), border-color 0.2s var(--ease);
 }
-.task-item[data-status="pending"] .status-tag { background: var(--bg-raised); color: var(--text-dim); border-color: var(--border); }
-.task-item[data-status="in_progress"] .status-tag { background: var(--accent-bg); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
-.task-item[data-status="done"] .status-tag { background: color-mix(in srgb, var(--mood-5) 14%, transparent); color: color-mix(in srgb, var(--mood-5) 72%, var(--text-dim)); }
+.task-item[data-status="pending"] .status-tag {
+  background: var(--st-pending-bg); color: var(--st-pending);
+  border-color: color-mix(in srgb, var(--st-pending) 30%, transparent);
+}
+.task-item[data-status="in_progress"] .status-tag {
+  background: var(--st-progress-bg); color: var(--st-progress);
+  border-color: color-mix(in srgb, var(--st-progress) 40%, transparent);
+}
+.task-item[data-status="done"] .status-tag {
+  background: var(--st-done-bg); color: var(--st-done);
+  border-color: color-mix(in srgb, var(--st-done) 32%, transparent);
+}
 .status-tag:hover { box-shadow: var(--glow); }
 
 /* menu wyboru statusu */
@@ -931,7 +981,12 @@ button.status-head:hover { color: var(--text); }
   transition: background 0.15s var(--ease), color 0.15s var(--ease);
 }
 .status-option:hover { background: var(--bg-panel); color: var(--text); }
-.status-option.current { color: var(--accent); }
+.status-option[data-status="pending"] .opt-mark { color: var(--st-pending); }
+.status-option[data-status="in_progress"] .opt-mark { color: var(--st-progress); }
+.status-option[data-status="done"] .opt-mark { color: var(--st-done); }
+.status-option[data-status="pending"].current { color: var(--st-pending); background: var(--st-pending-bg); }
+.status-option[data-status="in_progress"].current { color: var(--st-progress); background: var(--st-progress-bg); }
+.status-option[data-status="done"].current { color: var(--st-done); background: var(--st-done-bg); }
 .opt-mark { color: var(--text-faint); }
 
 .task-del {
