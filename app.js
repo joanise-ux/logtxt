@@ -6,6 +6,9 @@
 (() => {
   "use strict";
 
+  // skrót do tłumaczeń — i18n.js ładuje się przed app.js
+  const tr = (key, vars) => window.I18N.t(key, vars);
+
   /* ── stan ──
      Dane żyją w Supabase; `state` jest kopią roboczą trzymaną w pamięci,
      z której renderują się wszystkie widoki. Lokalnie zostają wyłącznie
@@ -41,10 +44,16 @@
     return true;
   }
 
-  function setStorageStatus(text, warn) {
+  // status trzymamy jako klucz i18n — dzięki temu przeżywa zmianę języka
+  let storageStatus = { key: "app.sync.dash", warn: false };
+  function setStorageStatus(key, warn) {
+    storageStatus = { key, warn: !!warn };
+    renderStorageStatus();
+  }
+  function renderStorageStatus() {
     const el = document.getElementById("storageStatus");
-    el.textContent = text;
-    el.style.color = warn ? "var(--accent-warn)" : "";
+    el.textContent = tr(storageStatus.key);
+    el.style.color = storageStatus.warn ? "var(--accent-warn)" : "";
   }
 
   // o nieudanym zapisie mówimy raz, nie przy każdej próbie ponowienia —
@@ -52,8 +61,8 @@
   let syncBroken = false;
   LOGTXT.onStatus((text, warn) => {
     setStorageStatus(text, warn);
-    if (warn && !syncBroken) toast("⚠ nie udało się zapisać — ponawiam");
-    if (warn !== syncBroken && !warn && syncBroken) toast("✓ zapisano po ponowieniu");
+    if (warn && !syncBroken) toast(tr("app.sync.retry"));
+    if (warn !== syncBroken && !warn && syncBroken) toast(tr("app.sync.retryOk"));
     syncBroken = !!warn;
   });
 
@@ -166,7 +175,7 @@
     state[collection].splice(Math.min(index, state[collection].length), 0, item);
     saveState();
     onRestore(item);
-    toast("↩ przywrócono ✓ restore complete");
+    toast(tr("app.undo.restored"));
   });
 
   /* ── motyw ── */
@@ -175,7 +184,7 @@
   const themeToggle = $("#themeToggle");
   const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
   const THEME_CYCLE = { auto: "light", light: "dark", dark: "auto" };
-  const THEME_LABEL = { auto: "auto_mode", light: "light_mode", dark: "dark_mode" };
+  const THEME_LABEL = { auto: "theme.auto", light: "theme.light", dark: "theme.dark" };
   let themePref = "auto";
 
   function resolveTheme(pref) {
@@ -188,10 +197,10 @@
     document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.themePref = themePref;
     // etykieta pokazuje aktualny tryb, tytuł podpowiada następny (auto → light → dark → auto)
-    themeToggle.querySelector(".theme-label").textContent = THEME_LABEL[themePref];
+    themeToggle.querySelector(".theme-label").textContent = tr(THEME_LABEL[themePref]);
     themeToggle.title = themePref === "auto"
-      ? `motyw: auto (systemowy → ${theme}) — kliknij, aby wybrać ${THEME_CYCLE[themePref]}`
-      : `motyw: ${themePref} — kliknij, aby wybrać ${THEME_CYCLE[themePref]}`;
+      ? tr("theme.titleAuto", { theme, next: THEME_CYCLE[themePref] })
+      : tr("theme.title", { mode: themePref, next: THEME_CYCLE[themePref] });
     localStorage.setItem(THEME_KEY, themePref);
     // kolor paska systemowego w zainstalowanej apce (PWA)
     document.querySelector('meta[name="theme-color"]')
@@ -208,6 +217,43 @@
   themeToggle.addEventListener("click", cycleTheme);
   // przełącznik motywu też na ekranie logowania — dzieli logikę z paskiem bocznym
   $("#authThemeToggle").addEventListener("click", cycleTheme);
+
+  /* ── język ── */
+  // preferencja: "auto" (za przeglądarką/systemem) | "pl" | "en"
+  const langLabels = $$(".lang-label");
+  function renderLangToggle() {
+    const pref = window.I18N.pref;
+    const next = window.I18N.next();
+    langLabels.forEach((el) => { el.textContent = tr(`lang.${pref}`); });
+    [$("#langToggle"), $("#authLangToggle"), $("#bottomLangMirror")].forEach((btn) => {
+      if (!btn) return;
+      btn.title = pref === "auto"
+        ? tr("lang.titleAuto", { lang: window.I18N.lang, next })
+        : tr("lang.title", { lang: pref, next });
+    });
+  }
+  renderLangToggle();
+  const cycleLang = () => window.I18N.setPref(window.I18N.next());
+  $("#langToggle").addEventListener("click", cycleLang);
+  $("#authLangToggle").addEventListener("click", cycleLang);
+  $("#bottomLangMirror").addEventListener("click", () => {
+    closeBottomSheet();
+    cycleLang();
+  });
+
+  // po zmianie języka odświeżamy wszystko, co budujemy z JS
+  window.I18N.onChange(() => {
+    renderLangToggle();
+    renderStorageStatus();
+    applyTheme(themePref);
+    renderTopbarDate();
+    renderMoodDow();
+    refreshEntryFilename();
+    renderCounts();
+    // dashboard odświeżamy zawsze — bywa ukryty, ale wraca bez ponownego renderu
+    renderDashboard();
+    if (activeView !== "dashboard") render(activeView);
+  });
 
   /* ── nawigacja ── */
   let activeView = "dashboard";
@@ -289,11 +335,19 @@
   }
 
   /* ── data w topbarze ── */
-  {
+  function renderTopbarDate() {
     const now = new Date();
-    const days = ["nd", "pon", "wt", "śr", "czw", "pt", "sob"];
+    const days = tr("date.weekdaysShort").split(",");
     $("#topbarDate").textContent = `${days[now.getDay()]} ${fmtDate(now)}`;
   }
+  renderTopbarDate();
+
+  /* ── nagłówki dni w grafie nastroju (pn…nd) ── */
+  function renderMoodDow() {
+    const labels = tr("mood.dow").split(",");
+    $$(".mood-dow span").forEach((el, i) => { el.textContent = labels[i] || ""; });
+  }
+  renderMoodDow();
 
   /* ═══════════════ transkrypcja ═══════════════
      Nagranie idzie do funkcji `transcribe` po stronie Supabase, a ta woła
@@ -308,7 +362,7 @@
   const sttTranscribe = (blob) => LOGTXT.transcribe(blob);
 
   function sttHintText() {
-    return "// auto-transkrypcja: on";
+    return tr("voice.autoStt");
   }
 
   /* ═══════════════ media (zdjęcia + audio w edytorach) ═══════════════ */
@@ -338,11 +392,11 @@
   function renderAttachment(a, opts = {}) {
     const editable = opts.editable !== false;
     if (a.type === "image") {
-      if (a.loading) return `<div class="attachment att-loading mono"><span class="dim">// ${escapeHtml(a.loadingMsg || "przesyłanie zdjęcia...")}</span></div>`;
+      if (a.loading) return `<div class="attachment att-loading mono"><span class="dim">// ${escapeHtml(a.loadingMsg || tr("media.uploading"))}</span></div>`;
       const cap = editable
-        ? `<input type="text" class="att-caption mono" data-id="${a.id}" value="${escapeAttr(a.caption || "")}" placeholder="// caption (opcjonalnie)">`
+        ? `<input type="text" class="att-caption mono" data-id="${a.id}" value="${escapeAttr(a.caption || "")}" placeholder="${escapeAttr(tr("media.ph.caption"))}">`
         : (a.caption ? `<figcaption class="att-caption-view mono">// ${escapeHtml(a.caption)}</figcaption>` : "");
-      const del = editable ? `<button type="button" class="att-del mono" data-id="${a.id}" title="Usuń">rm</button>` : "";
+      const del = editable ? `<button type="button" class="att-del mono" data-id="${a.id}" title="${escapeAttr(tr("media.delete"))}">rm</button>` : "";
       return `<figure class="attachment att-image" data-att="${a.id}">
         <div class="att-image-frame"><img src="${escapeAttr(a.src)}" alt="${escapeAttr(a.caption || "")}" loading="lazy">${del}</div>
         ${cap}
@@ -351,14 +405,14 @@
     if (a.type === "audio") {
       const wave = a.peaks ? a.peaks.map((p) => WAVE_CHARS_STR[Math.min(7, Math.floor(p * 8))]).join("") : "";
       const transcript = a.transcribing
-        ? `<div class="voice-transcript vt-status mono">// transkrypcja w toku<span class="cursor" aria-hidden="true">_</span></div>`
+        ? `<div class="voice-transcript vt-status mono">${escapeHtml(tr("media.transcribing"))}<span class="cursor" aria-hidden="true">_</span></div>`
         : a.transcript
           ? `<div class="voice-transcript"><span class="vt-text">${escapeHtml(a.transcript)}</span></div>`
           : "";
-      const del = editable ? `<button type="button" class="att-del mono" data-id="${a.id}" title="Usuń">rm</button>` : "";
+      const del = editable ? `<button type="button" class="att-del mono" data-id="${a.id}" title="${escapeAttr(tr("media.delete"))}">rm</button>` : "";
       return `<div class="attachment att-audio" data-att="${a.id}">
         <div class="att-audio-head mono">
-          <span class="dim">// audio</span>
+          <span class="dim">${escapeHtml(tr("media.audio"))}</span>
           <span class="dim">${pad(Math.floor(a.duration / 60))}:${pad(a.duration % 60)}</span>
           <span class="flex-spacer"></span>
           ${del}
@@ -419,26 +473,26 @@
     // zdjęcie ląduje w Storage; w pamięci trzymamy podgląd (blob URL) i ścieżkę,
     // a do bazy idzie sama ścieżka
     async function addPhotoFile(file) {
-      if (!file || !file.type.startsWith("image/")) { setHint("// błąd: to nie jest obraz"); return; }
+      if (!file || !file.type.startsWith("image/")) { setHint(tr("media.err.notImage")); return; }
       const id = uid();
       push({ id, type: "image", src: "", caption: "", loading: true });
-      setHint("// przesyłanie zdjęcia...", true);
+      setHint(tr("media.uploading"), true);
       try {
         const ext = (file.type.split("/")[1] || "png").split(";")[0];
         const path = await LOGTXT.uploadMedia(file, "photo", ext);
         update(id, { src: URL.createObjectURL(file), path, loading: false });
         onChange && onChange();
-        setHint("// gotowe");
+        setHint(tr("media.done"));
       } catch (err) {
         remove(id);
-        setHint(`// błąd: ${err.message}`, true);
+        setHint(tr("media.err.generic", { msg: err.message }), true);
       }
     }
 
     async function addPhotoUrl(url) {
       if (!url) return;
       const id = uid();
-      push({ id, type: "image", src: "", caption: "", loading: true, loadingMsg: "pobieranie z URL..." });
+      push({ id, type: "image", src: "", caption: "", loading: true, loadingMsg: tr("media.downloading") });
       setHint("// pobieranie z URL...", true);
       try {
         // pobieramy do siebie, żeby zdjęcie nie zniknęło, gdy zniknie źródłowy link
@@ -452,7 +506,7 @@
         update(id, { src: url, path: "", loading: false });
       }
       onChange && onChange();
-      setHint("// gotowe");
+      setHint(tr("media.done"));
     }
 
     // paste ze schowka (Ctrl+V) — jeśli w schowku jest obraz, dodajemy go zamiast wklejać tekst
@@ -476,7 +530,7 @@
       fileInput.value = "";
     });
     root.querySelector('[data-act="photo-url"]').addEventListener("click", () => {
-      const url = prompt("Wklej link do zdjęcia (jpg/png/webp):");
+      const url = prompt(tr("media.promptUrl"));
       if (url) addPhotoUrl(url.trim());
     });
 
@@ -488,7 +542,7 @@
       if (mr && mr.state === "recording") { mr.stop(); return; }
       let stream;
       try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
-      catch { setHint("// błąd: brak dostępu do mikrofonu", true); return; }
+      catch { setHint(tr("voice.err.mic"), true); return; }
 
       peaks = []; transcript = "";
       const chunks = [];
@@ -568,7 +622,7 @@
             update(id, { path });
           } catch (err) {
             update(id, { transcribing: false });
-            setHint(`// błąd: ${err.message}`, true);
+            setHint(tr("media.err.generic", { msg: err.message }), true);
             return;
           }
 
@@ -636,7 +690,7 @@
       $("#entryTags").value = "";
       entryDraftAttachments = [];
       entryMedia.render();
-      toast("Zapisano ✓ commit successful");
+      toast(tr("app.saved"));
     }
     renderEntries();
     renderCounts();
@@ -664,7 +718,7 @@
 
     $("#entryList").innerHTML = list.length
       ? list.map(entryCard).join("")
-      : `<div class="empty-state">// brak wpisów${activeTagFilter ? ` z tagiem ${escapeHtml(activeTagFilter)}` : " dzisiaj"} — dodaj pierwszy log</div>`;
+      : `<div class="empty-state">${escapeHtml(tr("entries.empty", { tag: activeTagFilter ? tr("entries.empty.tag", { tag: activeTagFilter }) : tr("entries.empty.today") }))}</div>`;
 
     $$("#entryList .entry-del").forEach((btn) =>
       btn.addEventListener("click", () => {
@@ -700,7 +754,7 @@
       : "";
     const dayMood = moodOfDay(dayKey(e.ts));
     const moodBadge = dayMood
-      ? `<button type="button" class="entry-mood mono" data-mood-jump title="mood ${dayMood}/5 — otwórz mood.log">
+      ? `<button type="button" class="entry-mood mono" data-mood-jump title="${escapeAttr(tr("entries.moodJump", { level: dayMood }))}">
           <span class="mood-cell l${dayMood}"></span><span class="em-lvl">${dayMood}/5</span>
         </button>`
       : "";
@@ -761,7 +815,7 @@
       selectedMood = null;
       $$("#moodScale .mood-btn").forEach((b) => b.classList.remove("selected"));
       $("#moodSubmit").disabled = true;
-      toast(overwritten ? "Zaktualizowano ✓ mood updated" : "Zapisano ✓ mood logged");
+      toast(tr(overwritten ? "mood.updated" : "mood.saved"));
     }
     renderMood();
   });
@@ -803,7 +857,7 @@
       if (!byDay[k]) byDay[k] = m.level; // najnowszy wpis dnia wygrywa (lista jest od najnowszych)
     }
 
-    $("#moodRangeLabel").textContent = `// ostatnie ${moodRangeDays} dni`;
+    $("#moodRangeLabel").textContent = tr("mood.rangeLabel", { days: moodRangeDays });
     $$("#moodRange .range-btn").forEach((b) =>
       b.classList.toggle("active", Number(b.dataset.days) === moodRangeDays)
     );
@@ -825,7 +879,7 @@
       const k = dayKey(d.getTime());
       const inRange = d >= rangeStart && d <= today;
       const level = inRange ? byDay[k] : undefined;
-      cells += `<span class="mood-day ${k === todayKey ? "today" : ""}" ${level ? `data-level="${level}"` : ""} title="${inRange ? `${k}${level ? ` · nastrój ${level}/5` : ""}` : ""}" style="${!inRange ? "visibility:hidden" : ""}">${inRange ? `<span class="d">${d.getDate()}</span>` : ""}</span>`;
+      cells += `<span class="mood-day ${k === todayKey ? "today" : ""}" ${level ? `data-level="${level}"` : ""} title="${inRange ? (level ? escapeAttr(tr("mood.dayTitle", { date: k, level })) : k) : ""}" style="${!inRange ? "visibility:hidden" : ""}">${inRange ? `<span class="d">${d.getDate()}</span>` : ""}</span>`;
       d.setDate(d.getDate() + 1);
     }
     $("#moodGraph").innerHTML = cells;
@@ -843,7 +897,7 @@
           </div>
           ${m.note ? `<div class="entry-body">${escapeHtml(m.note)}</div>` : ""}
         </article>`).join("")
-      : `<div class="empty-state">// brak logów nastroju — zapisz pierwszy stan</div>`;
+      : `<div class="empty-state">${escapeHtml(tr("mood.empty"))}</div>`;
 
     $$("#moodList .entry-del").forEach((btn) =>
       btn.addEventListener("click", () => {
@@ -858,7 +912,7 @@
   let activeNoteId = null;
 
   $("#newNoteBtn").addEventListener("click", () => {
-    const note = { id: uid(), ts: Date.now(), updated: Date.now(), title: "nowa", body: "", attachments: [] };
+    const note = { id: uid(), ts: Date.now(), updated: Date.now(), title: tr("notes.newName"), body: "", attachments: [] };
     state.notes.unshift(note);
     saveState();
     activeNoteId = note.id;
@@ -889,10 +943,10 @@
   $("#saveNoteBtn").addEventListener("click", () => {
     const note = state.notes.find((n) => n.id === activeNoteId);
     if (!note) return;
-    note.title = ($("#noteTitle").value.trim() || "bez_nazwy").replace(/\s+/g, "_");
+    note.title = ($("#noteTitle").value.trim() || tr("notes.untitled")).replace(/\s+/g, "_");
     note.body = $("#noteBody").value;
     note.updated = Date.now();
-    if (saveState()) toast("Zapisano ✓ commit successful");
+    if (saveState()) toast(tr("app.saved"));
     renderNotes();
   });
 
@@ -991,9 +1045,9 @@
 
     const setSel = (a, b) => { ta.focus(); ta.setSelectionRange(a, b); };
 
-    if (kind === "bold") wrap("**", "pogrubienie");
-    else if (kind === "italic") wrap("*", "kursywa");
-    else if (kind === "code") wrap("`", "kod");
+    if (kind === "bold") wrap("**", tr("notes.md.bold").split(" (")[0].toLowerCase());
+    else if (kind === "italic") wrap("*", tr("notes.md.italic").split(" (")[0].toLowerCase());
+    else if (kind === "code") wrap("`", tr("notes.md.code").toLowerCase());
     else if (kind === "h1") linePrefix("# ", /^#{1,6}\s*/);
     else if (kind === "list") linePrefix("- ", /^\s*[-*]\s+/);
     else if (kind === "check") linePrefix("- [ ] ", /^\s*[-*]\s*\[[ x~]\]\s*/i, /^\s*[-*]\s+/);
@@ -1048,11 +1102,11 @@
             <svg class="icon" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
             <span class="note-file-name">${escapeHtml(n.title)}.md</span>
           </button>
-          <button class="pin-toggle ${n.pinned ? "pinned" : ""}" data-id="${n.id}" title="${n.pinned ? "Odepnij" : "Przypnij do dashboardu"}" aria-label="${n.pinned ? "Odepnij" : "Przypnij"}">
+          <button class="pin-toggle ${n.pinned ? "pinned" : ""}" data-id="${n.id}" title="${escapeAttr(tr(n.pinned ? "notes.unpinTitle" : "notes.pinTitle"))}" aria-label="${escapeAttr(tr(n.pinned ? "notes.unpinTitle" : "notes.pinTitle"))}">
             <svg class="icon" viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M12 2v7l4 4v3H8v-3l4-4V2z"/><path d="M12 16v6"/></svg>
           </button>
         </div>`).join("")
-      : `<div class="empty-state" style="padding:20px 10px">// pusto — utwórz plik</div>`;
+      : `<div class="empty-state" style="padding:20px 10px">${escapeHtml(tr("notes.empty"))}</div>`;
 
     $$("#noteFiles .note-file").forEach((btn) =>
       btn.addEventListener("click", () => {
@@ -1077,7 +1131,7 @@
       const pinBtn = $("#pinNoteBtn");
       pinBtn.classList.toggle("pinned", note.pinned);
       pinBtn.setAttribute("aria-pressed", note.pinned ? "true" : "false");
-      pinBtn.querySelector(".pin-btn-label").textContent = note.pinned ? "// unpin" : "// pin";
+      pinBtn.querySelector(".pin-btn-label").textContent = tr(note.pinned ? "notes.unpin" : "notes.pin");
       noteMedia.render();
       setNoteTab("edit");
     }
@@ -1090,7 +1144,7 @@
     note.pinned = !note.pinned;
     note.pinnedAt = note.pinned ? Date.now() : null;
     saveState();
-    toast(note.pinned ? "📌 przypięto ✓" : "// odpięto");
+    toast(tr(note.pinned ? "notes.pinned" : "notes.unpinned"));
     if (activeView === "notes") renderNotes();
     if (activeView === "dashboard") renderDashboard();
   }
@@ -1132,7 +1186,7 @@
       }
     });
     closeList();
-    return html || `<p class="dim">// pusty plik</p>`;
+    return html || `<p class="dim">${escapeHtml(tr("notes.emptyFile"))}</p>`;
 
     function inline(s) {
       return s
@@ -1154,7 +1208,7 @@
     state.tasks.unshift({ id: uid(), ts: Date.now(), text, status: "pending", sprint });
     if (saveState()) {
       $("#taskText").value = "";
-      toast("Zapisano ✓ task added → pending");
+      toast(tr("tasks.added"));
     }
     renderTasks();
     renderCounts();
@@ -1165,10 +1219,10 @@
 
   function taskRow(t) {
     return `<div class="task-item" data-status="${t.status}" data-item-id="${t.id}">
-      <button class="task-check" data-id="${t.id}" title="→ ${STATUS_NEXT[t.status]}" aria-label="Następny status">${STATUS_MARK[t.status]}</button>
+      <button class="task-check" data-id="${t.id}" title="→ ${STATUS_NEXT[t.status]}" aria-label="${escapeAttr(tr("tasks.nextStatus"))}">${STATUS_MARK[t.status]}</button>
       <span class="task-text">${escapeHtml(t.text)}</span>
       <span class="task-sprint mono">${escapeHtml(t.sprint)}</span>
-      <button class="status-tag mono" data-id="${t.id}" aria-haspopup="menu" title="Zmień status">${t.status}</button>
+      <button class="status-tag mono" data-id="${t.id}" aria-haspopup="menu" title="${escapeAttr(tr("tasks.changeStatus"))}">${t.status}</button>
       <button class="task-del" data-id="${t.id}">rm</button>
     </div>`;
   }
@@ -1180,7 +1234,7 @@
     $("#sprintList").innerHTML = sprints.map((s) => `<option value="${escapeHtml(s)}">`).join("");
 
     if (!state.tasks.length) {
-      $("#statusGroups").innerHTML = `<div class="empty-state">// brak zadań — backlog czysty</div>`;
+      $("#statusGroups").innerHTML = `<div class="empty-state">${escapeHtml(tr("tasks.empty"))}</div>`;
       return;
     }
 
@@ -1277,7 +1331,7 @@
         nel.classList.add("task-enter");
         setTimeout(() => nel.classList.remove("task-enter"), 350);
       }
-      if (status === "done") toast("✓ done — dobra robota");
+      if (status === "done") toast(tr("tasks.done"));
     };
     if (el) {
       el.classList.add("task-leave");
@@ -1356,7 +1410,7 @@
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      recStatus.textContent = "// błąd: brak dostępu do mikrofonu";
+      recStatus.textContent = tr("voice.err.mic");
       return;
     }
 
@@ -1432,11 +1486,11 @@
         const ext = (blob.type.split("/")[1] || "webm").split(";")[0];
         memo.path = await LOGTXT.uploadMedia(blob, "voice", ext);
         saveState();
-        toast("Zapisano ✓ voice memo committed");
+        toast(tr("voice.saved"));
       } catch (err) {
         memo.transcribing = false;
         memo.sttError = err.message;
-        recStatus.textContent = `// błąd: ${err.message}`;
+        recStatus.textContent = tr("media.err.generic", { msg: err.message });
         renderVoice();
         return;
       }
@@ -1477,12 +1531,12 @@
   // blok transkrypcji: tekst (skrót, rozwijany kliknięciem) albo stan w toku/błędu
   function transcriptBlock(v) {
     if (v.transcribing)
-      return `<div class="voice-transcript vt-status mono">// transkrypcja w toku<span class="cursor" aria-hidden="true">_</span></div>`;
+      return `<div class="voice-transcript vt-status mono">${escapeHtml(tr("media.transcribing"))}<span class="cursor" aria-hidden="true">_</span></div>`;
 
     // każde nagranie da się przepuścić ponownie — także starsze, sprzed przejścia
     // na transkrypcję po stronie serwera
     const redo = v.path
-      ? `<button type="button" class="vt-redo mono" data-redo="${v.id}">↻ ${v.transcript ? "transkrybuj ponownie" : "transkrybuj"}</button>`
+      ? `<button type="button" class="vt-redo mono" data-redo="${v.id}">↻ ${escapeHtml(tr(v.transcript ? "voice.transcribeAgain" : "voice.transcribe"))}</button>`
       : "";
 
     // nieudana próba przy istniejącym tekście: stary tekst zostaje, błąd dopisujemy pod nim
@@ -1491,7 +1545,7 @@
       : "";
 
     if (v.transcript)
-      return `<button type="button" class="voice-transcript vt-toggle" data-id="${v.id}" title="Pokaż całość / zwiń">
+      return `<button type="button" class="voice-transcript vt-toggle" data-id="${v.id}" title="${escapeAttr(tr("voice.toggleTranscript"))}">
           <span class="vt-text">${escapeHtml(v.transcript)}</span>
         </button>${errLine}${redo}`;
     if (errLine) return `${errLine}${redo}`;
@@ -1512,7 +1566,7 @@
           <audio controls preload="none" src="${escapeAttr(v.src || "")}"></audio>
           ${transcriptBlock(v)}
         </article>`).join("")
-      : `<div class="empty-state">// brak nagrań — naciśnij record i powiedz, co myślisz</div>`;
+      : `<div class="empty-state">${escapeHtml(tr("voice.empty"))}</div>`;
 
     $$("#voiceList .vt-toggle").forEach((el) =>
       el.addEventListener("click", () => el.classList.toggle("expanded"))
@@ -1528,7 +1582,7 @@
           const audio = await (await fetch(v.src)).blob();
           v.transcript = await sttTranscribe(audio);
           v.sttError = "";
-          toast(v.transcript ? "Transkrypcja gotowa ✓" : "Nie rozpoznano mowy");
+          toast(tr(v.transcript ? "voice.transcriptReady" : "voice.noSpeech"));
         } catch (err) {
           v.sttError = err.message;
           toast(`⚠ ${err.message}`);
@@ -1612,7 +1666,7 @@
   function renderDashboard() {
     const now = new Date();
     const h = now.getHours();
-    const title = h < 5 ? "nocna sesja" : h < 12 ? "dzień dobry" : h < 18 ? "witaj z powrotem" : "dobry wieczór";
+    const title = tr(h < 5 ? "dash.hello.night" : h < 12 ? "dash.hello.morning" : h < 18 ? "dash.hello.day" : "dash.hello.evening");
     const name = (session && session.name) ? session.name.trim() : "";
     const namePart = name ? `, ${escapeHtml(name)}` : "";
     $("#helloTitle").innerHTML = `${title}${namePart}<span class="cursor" aria-hidden="true">_</span>`;
@@ -1629,10 +1683,14 @@
       d.setDate(d.getDate() - 1);
     }
 
-    const days = ["niedziela", "poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota"];
-    const dniWord = streak === 1 ? "dzień" : "dni";
-    $("#helloLine").textContent =
-      `// jest ${fmtTime(now.getTime())}, ${days[now.getDay()]} · streak: ${streak} ${dniWord} 🔥 · commits_today: ${todayCount}`;
+    const days = tr("date.weekdays").split(",");
+    $("#helloLine").textContent = tr("dash.helloLine", {
+      time: fmtTime(now.getTime()),
+      weekday: days[now.getDay()],
+      streak,
+      dayWord: tr(streak === 1 ? "dash.dayOne" : "dash.dayMany"),
+      today: todayCount,
+    });
 
     /* ── kafelki sekcji ── */
     const weekStart = startOfWeek();
@@ -1648,13 +1706,13 @@
       ? `<span class="mood-spark" aria-hidden="true">${moodTrend
           .map((m) => `<span style="height:${m.level * 20}%;background:var(--mood-${m.level})"></span>`)
           .join("")}</span>`
-      : `<span class="tile-sub">// brak trendu</span>`;
+      : `<span class="tile-sub">${escapeHtml(tr("dash.tile.noTrend"))}</span>`;
 
     $("#dashTiles").innerHTML = `
       <button class="tile" data-tile="entries">
         <span class="tile-head"><span>entries/</span><span class="tile-arrow">→</span></span>
-        <span class="tile-stat">${weekEntries} <span class="tile-unit">w tym tygodniu</span></span>
-        <span class="tile-sub">${lastEntry ? "ostatni: „" + escapeHtml(lastEntry.body.split("\n")[0].slice(0, 60)) + "”" : "// brak wpisów — dodaj pierwszy log"}</span>
+        <span class="tile-stat">${weekEntries} <span class="tile-unit">${escapeHtml(tr("dash.tile.thisWeek"))}</span></span>
+        <span class="tile-sub">${lastEntry ? escapeHtml(tr("dash.tile.lastEntry", { text: lastEntry.body.split("\n")[0].slice(0, 60) })) : escapeHtml(tr("entries.empty", { tag: "" }))}</span>
       </button>
       <button class="tile" data-tile="mood">
         <span class="tile-head"><span>mood.log</span><span class="tile-arrow">→</span></span>
@@ -1663,8 +1721,8 @@
       </button>
       <button class="tile" data-tile="notes">
         <span class="tile-head"><span>notes/</span><span class="tile-arrow">→</span></span>
-        <span class="tile-stat">${state.notes.length} <span class="tile-unit">${state.notes.length === 1 ? "plik" : "plików"}</span></span>
-        <span class="tile-sub">${lastNote ? escapeHtml(lastNote.title) + ".md" : "// pusto — utwórz plik"}</span>
+        <span class="tile-stat">${state.notes.length} <span class="tile-unit">${escapeHtml(tr(state.notes.length === 1 ? "dash.tile.fileOne" : "dash.tile.fileMany"))}</span></span>
+        <span class="tile-sub">${lastNote ? escapeHtml(lastNote.title) + ".md" : escapeHtml(tr("notes.empty"))}</span>
       </button>
       <button class="tile" data-tile="tasks">
         <span class="tile-head"><span>tasks.todo</span><span class="tile-arrow">→</span></span>
@@ -1673,8 +1731,8 @@
       </button>
       <button class="tile" data-tile="voice">
         <span class="tile-head"><span>voice/</span><span class="tile-arrow">→</span></span>
-        <span class="tile-stat">${state.voice.length} <span class="tile-unit">${state.voice.length === 1 ? "nagranie" : "nagrań"}</span></span>
-        <span class="tile-sub">${lastVoice ? `ostatnie: ${pad(Math.floor(lastVoice.duration / 60))}:${pad(lastVoice.duration % 60)}` : "// cisza w eterze"}</span>
+        <span class="tile-stat">${state.voice.length} <span class="tile-unit">${escapeHtml(tr(state.voice.length === 1 ? "dash.tile.recOne" : "dash.tile.recMany"))}</span></span>
+        <span class="tile-sub">${lastVoice ? escapeHtml(tr("dash.tile.lastVoice", { time: `${pad(Math.floor(lastVoice.duration / 60))}:${pad(lastVoice.duration % 60)}` })) : escapeHtml(tr("dash.tile.silence"))}</span>
       </button>`;
 
     $$("#dashTiles .tile").forEach((t) =>
@@ -1690,7 +1748,7 @@
     /* ── ostatnia aktywność ── */
     const items = [
       ...state.entries.map((e) => ({ ts: e.ts, kind: "entry", id: e.id, msg: e.body.split("\n")[0] })),
-      ...state.moods.map((m) => ({ ts: m.ts, kind: "mood", id: m.id, msg: `nastrój ${m.level}/5${m.note ? " — " + m.note : ""}` })),
+      ...state.moods.map((m) => ({ ts: m.ts, kind: "mood", id: m.id, msg: `${tr("dash.mood.item", { level: m.level })}${m.note ? " — " + m.note : ""}` })),
       ...state.notes.map((n) => ({ ts: n.updated || n.ts, kind: "note", id: n.id, msg: n.title + ".md" })),
       ...state.tasks.map((t) => ({ ts: t.ts, kind: "task", id: t.id, msg: `${STATUS_MARK[t.status]} ${t.text}` })),
       ...state.voice.map((v) => ({ ts: v.ts, kind: "voice", id: v.id, msg: v.transcript ? v.transcript.slice(0, 80) : `nagranie ${v.duration}s` })),
@@ -1703,7 +1761,7 @@
           <span class="recent-msg">${escapeHtml(it.msg)}</span>
           <span class="recent-time">${fmtRecentTime(it.ts)}</span>
         </button>`).join("")
-      : `<div class="empty-state">// brak aktywności — zacznij od pierwszego commita</div>`;
+      : `<div class="empty-state">${escapeHtml(tr("dash.empty.activity"))}</div>`;
 
     $$("#recentList .recent-item").forEach((el) =>
       el.addEventListener("click", () => openItem(el.dataset.kind, el.dataset.id))
@@ -1727,7 +1785,7 @@
     $("#pinnedCount").textContent = pinned.length ? `// ${pinned.length}` : "";
     const linkBtn = $("#pinnedAllLink");
     linkBtn.hidden = overflow <= 0;
-    linkBtn.textContent = `+${overflow} więcej →`;
+    linkBtn.textContent = tr("dash.more", { n: overflow });
 
     $("#pinnedList").innerHTML = shown.length
       ? shown.map((n) => `<button class="pinned-card" data-id="${n.id}">
@@ -1738,7 +1796,7 @@
           </span>
           <span class="pinned-snippet">${escapeHtml(notePreviewSnippet(n))}</span>
         </button>`).join("")
-      : `<div class="empty-state slim">// brak przypiętych notatek — przypnij coś ważnego</div>`;
+      : `<div class="empty-state slim">${escapeHtml(tr("dash.empty.pinned"))}</div>`;
 
     $$("#pinnedList .pinned-card").forEach((btn) =>
       btn.addEventListener("click", (e) => {
@@ -1774,19 +1832,19 @@
     $("#tasksPreviewCount").textContent = openList.length ? `// ${openList.length} otwartych` : "";
     const linkBtn = $("#tasksAllLink");
     linkBtn.hidden = overflow <= 0;
-    linkBtn.textContent = `+${overflow} więcej →`;
+    linkBtn.textContent = tr("dash.more", { n: overflow });
 
     $("#tasksPreviewList").innerHTML = shown.length
       ? shown.map((t) => `<div class="tp-row" data-status="${t.status}" data-id="${t.id}">
-          <button class="tp-check" data-cycle="${t.id}" title="→ ${STATUS_NEXT[t.status]}" aria-label="Następny status">${STATUS_MARK[t.status]}</button>
+          <button class="tp-check" data-cycle="${t.id}" title="→ ${STATUS_NEXT[t.status]}" aria-label="${escapeAttr(tr("tasks.nextStatus"))}">${STATUS_MARK[t.status]}</button>
           <button class="tp-open" data-open="${t.id}">
             <span class="tp-text">${escapeHtml(t.text)}</span>
             <span class="tp-status mono">${t.status}</span>
           </button>
         </div>`).join("")
       : (state.tasks.length
-          ? `<div class="empty-state slim">// wszystko zrobione ✓</div>`
-          : `<div class="empty-state slim">// brak zadań — dodaj pierwsze</div>`);
+          ? `<div class="empty-state slim">${escapeHtml(tr("dash.empty.tasksDone"))}</div>`
+          : `<div class="empty-state slim">${escapeHtml(tr("dash.empty.tasks"))}</div>`);
 
     $$("#tasksPreviewList .tp-check").forEach((btn) =>
       btn.addEventListener("click", (e) => {
@@ -1863,23 +1921,23 @@
     const password = $("#loginPassword").value;
 
     if (!isValidEmail(email)) {
-      loginError.textContent = "// błąd: niepoprawny adres email";
+      loginError.textContent = tr("auth.err.email");
       return;
     }
     if (password.length < 1) {
-      loginError.textContent = "// błąd: wpisz hasło";
+      loginError.textContent = tr("auth.err.password");
       return;
     }
 
     const btn = loginForm.querySelector('button[type="submit"]');
     btn.disabled = true;
-    loginError.textContent = "// łączenie...";
+    loginError.textContent = tr("auth.connecting");
     try {
       const user = await LOGTXT.auth.signIn(email, password);
       await enterApp(user);
-      toast(`✓ zalogowano jako ${LOGTXT.auth.name(user)}`);
+      toast(tr("auth.loggedIn", { name: LOGTXT.auth.name(user) }));
     } catch (err) {
-      loginError.textContent = `// błąd: ${err.message}`;
+      loginError.textContent = tr("auth.err.generic", { msg: err.message });
     } finally {
       btn.disabled = false;
     }
@@ -1894,38 +1952,38 @@
     const password2 = $("#regPassword2").value;
 
     if (name.length < 1) {
-      registerError.textContent = "// błąd: podaj imię";
+      registerError.textContent = tr("auth.err.name");
       return;
     }
     if (!isValidEmail(email)) {
-      registerError.textContent = "// błąd: niepoprawny adres email";
+      registerError.textContent = tr("auth.err.email");
       return;
     }
     if (password.length < 8) {
-      registerError.textContent = "// błąd: hasło musi mieć min. 8 znaków";
+      registerError.textContent = tr("auth.err.passwordShort");
       return;
     }
     if (password !== password2) {
-      registerError.textContent = "// błąd: hasła się nie zgadzają";
+      registerError.textContent = tr("auth.err.passwordMismatch");
       return;
     }
 
     const btn = registerForm.querySelector('button[type="submit"]');
     btn.disabled = true;
-    registerError.textContent = "// zakładam konto...";
+    registerError.textContent = tr("auth.registering");
     try {
       const res = await LOGTXT.auth.signUp(email, password, name);
       // przy włączonym potwierdzaniu adresu konto istnieje, ale sesji jeszcze nie ma
       if (res.needsConfirmation) {
-        registerError.textContent = "// konto założone — potwierdź adres linkiem z maila, potem zaloguj się";
+        registerError.textContent = tr("auth.confirmMail");
         switchAuthMode("login");
         $("#loginEmail").value = email;
         return;
       }
       await enterApp(res.user);
-      toast(`✓ konto utworzone — witaj, ${name}`);
+      toast(tr("auth.accountCreated", { name }));
     } catch (err) {
-      registerError.textContent = `// błąd: ${err.message}`;
+      registerError.textContent = tr("auth.err.generic", { msg: err.message });
     } finally {
       btn.disabled = false;
     }
@@ -1952,12 +2010,12 @@
     session = { name: LOGTXT.auth.name(user), email: user.email };
     hideAuth();
     refreshSidebarUser();
-    setStorageStatus("sync: wczytywanie...");
+    setStorageStatus("app.sync.loading");
     try {
       state = await LOGTXT.loadAll();
-      setStorageStatus("sync: ok");
+      setStorageStatus("app.sync.ok");
     } catch (err) {
-      setStorageStatus("sync: błąd", true);
+      setStorageStatus("app.sync.error", true);
       toast(`⚠ ${err.message}`);
     }
     showView("dashboard");
@@ -1996,9 +2054,9 @@
 
     // nagrania pomijamy: siedzą jako base64 i musiałyby przejść przez Storage,
     // a przy okazji to one zajmowały najwięcej miejsca
-    const msg = `Znaleziono lokalny dziennik z tej przeglądarki: ${total} wpisów `
-      + `(${counts[0]} entries, ${counts[1]} mood, ${counts[2]} notatek, ${counts[3]} zadań).\n\n`
-      + "Przenieść je na konto? Nagrania głosowe nie zostaną przeniesione.";
+    const msg = tr("import.prompt", {
+      total, entries: counts[0], moods: counts[1], notes: counts[2], tasks: counts[3],
+    });
     if (!confirm(msg)) {
       localStorage.setItem(LEGACY_DONE_KEY, "odrzucone");
       return;
@@ -2020,7 +2078,7 @@
     if (ok) localStorage.setItem(LEGACY_DONE_KEY, "1");
     render(activeView);
     renderCounts();
-    toast(ok ? `✓ przeniesiono ${total} wpisów` : "⚠ część wpisów się nie zapisała");
+    toast(ok ? tr("import.ok", { total }) : tr("import.partial"));
   }
 
   /* ═══════════════ ekran startowy ═══════════════
@@ -2073,8 +2131,8 @@
     if (!LOGTXT.configured) {
       showAuth("login");
       $("#loginError").textContent = window.supabase
-        ? "// błąd: brak klucza do backendu — uzupełnij config.js"
-        : "// błąd: nie wczytał się klient bazy — odśwież stronę";
+        ? tr("auth.err.noKey")
+        : tr("auth.err.noClient");
       loginForm.querySelector('button[type="submit"]').disabled = true;
       await booted;
       await finishBoot();
