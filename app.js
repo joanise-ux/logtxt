@@ -12,6 +12,7 @@
      ustawienia wyglądu. */
   const THEME_KEY = "logtxt.theme";
   const LEGACY_STATE_KEY = "logtxt.state.v1"; // dane sprzed przejścia na konto
+  const LEGACY_DONE_KEY = "logtxt.legacyImport.done"; // pytanie o import zadajemy raz
 
   const defaultState = { entries: [], moods: [], notes: [], tasks: [], voice: [] };
 
@@ -1950,23 +1951,38 @@
      Stary dziennik siedzi w localStorage tej przeglądarki. Nie kasujemy go
      po imporcie — zostaje jako kopia, dopóki użytkownik sam nie posprząta. */
   async function offerLegacyImport() {
+    // raz odpowiedziane — czy to „tak", czy „nie" — więcej nie zaczepiamy
+    if (localStorage.getItem(LEGACY_DONE_KEY)) return;
+
     let legacy;
     try {
       legacy = JSON.parse(localStorage.getItem(LEGACY_STATE_KEY) || "null");
-    } catch { return; }
-    if (!legacy) return;
+    } catch {
+      localStorage.setItem(LEGACY_DONE_KEY, "1");
+      return;
+    }
+    if (!legacy) {
+      localStorage.setItem(LEGACY_DONE_KEY, "1");
+      return;
+    }
 
     const counts = ["entries", "moods", "notes", "tasks"]
       .map((k) => (legacy[k] || []).length);
     const total = counts.reduce((a, b) => a + b, 0);
-    if (!total) return;
+    if (!total) {
+      localStorage.setItem(LEGACY_DONE_KEY, "1");
+      return;
+    }
 
     // nagrania pomijamy: siedzą jako base64 i musiałyby przejść przez Storage,
     // a przy okazji to one zajmowały najwięcej miejsca
     const msg = `Znaleziono lokalny dziennik z tej przeglądarki: ${total} wpisów `
       + `(${counts[0]} entries, ${counts[1]} mood, ${counts[2]} notatek, ${counts[3]} zadań).\n\n`
       + "Przenieść je na konto? Nagrania głosowe nie zostaną przeniesione.";
-    if (!confirm(msg)) return;
+    if (!confirm(msg)) {
+      localStorage.setItem(LEGACY_DONE_KEY, "odrzucone");
+      return;
+    }
 
     const have = new Set([...state.entries, ...state.moods, ...state.notes, ...state.tasks].map((i) => i.id));
     const fresh = (item) => ({ ...item, id: have.has(item.id) ? uid() : item.id });
@@ -1980,6 +1996,8 @@
     for (const t of legacy.tasks || []) state.tasks.push(fresh(t));
 
     const ok = await LOGTXT.syncNow(state);
+    // znacznik stawiamy tylko po udanym zapisie — inaczej warto spytać ponownie
+    if (ok) localStorage.setItem(LEGACY_DONE_KEY, "1");
     render(activeView);
     renderCounts();
     toast(ok ? `✓ przeniesiono ${total} wpisów` : "⚠ część wpisów się nie zapisała");
