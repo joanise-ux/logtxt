@@ -1,4 +1,5 @@
 {
+  "id": "./",
   "name": "log.txt — dziennik",
   "short_name": "log.txt",
   "description": "Dziennik myśli w stylu terminala — wpisy, nastroje, notatki, zadania i notatki głosowe.",
@@ -6,10 +7,27 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#0d0f12",
   "theme_color": "#0d0f12",
+  "categories": ["productivity", "lifestyle"],
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nowy wpis",
+      "short_name": "wpis",
+      "url": "./?qa=entry",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Nagraj notatkę",
+      "short_name": "nagraj",
+      "url": "./?qa=voice",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
   ]
 }

@@ -1632,20 +1632,33 @@
   }
 
   // szybkie akcje: skok do sekcji + fokus na właściwym polu
+  const QA_FOCUS = {
+    entry: ["entries", "#entryBody"],
+    mood: ["mood", "#moodScale .mood-btn"],
+    task: ["tasks", "#taskText"],
+    voice: ["voice", "#recBtn"],
+  };
+
+  function quickAction(qa) {
+    const target = QA_FOCUS[qa];
+    if (!target) return;
+    const [view, sel] = target;
+    showView(view);
+    setTimeout(() => { const el = $(sel); if (el) el.focus(); }, 90);
+  }
+
   $$(".qa-btn").forEach((btn) =>
-    btn.addEventListener("click", () => {
-      const qa = btn.dataset.qa;
-      const focusMap = {
-        entry: ["entries", "#entryBody"],
-        mood: ["mood", "#moodScale .mood-btn"],
-        task: ["tasks", "#taskText"],
-        voice: ["voice", "#recBtn"],
-      };
-      const [view, sel] = focusMap[qa];
-      showView(view);
-      setTimeout(() => { const el = $(sel); if (el) el.focus(); }, 90);
-    })
+    btn.addEventListener("click", () => quickAction(btn.dataset.qa))
   );
+
+  /* ── skróty z manifestu (długie przytrzymanie ikony apki): ./?qa=entry ──
+     adres czyścimy po wykonaniu, żeby odświeżenie nie powtarzało akcji */
+  function applyLaunchShortcut() {
+    const qa = new URLSearchParams(location.search).get("qa");
+    if (!qa || !QA_FOCUS[qa]) return;
+    history.replaceState(null, "", location.pathname + location.hash);
+    quickAction(qa);
+  }
 
   $("#logoHome").addEventListener("click", () => showView("dashboard"));
 
@@ -2022,6 +2035,7 @@
     render("dashboard");
     renderCounts();
     drawIdle();
+    applyLaunchShortcut();
     await offerLegacyImport();
   }
 
@@ -2155,8 +2169,12 @@
   })();
   setInterval(refreshEntryFilename, 30000);
 
-  /* ── PWA: rejestracja service workera (offline + instalacja na telefonie) ── */
+  /* ── PWA: rejestracja service workera (offline + instalacja na telefonie) ──
+     czekamy na `load`, żeby pobieranie sw.js nie konkurowało o łącze
+     z pierwszym renderem apki */
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js").catch(() => {});
+    const registerSW = () => navigator.serviceWorker.register("./sw.js").catch(() => {});
+    if (document.readyState === "complete") registerSW();
+    else window.addEventListener("load", registerSW, { once: true });
   }
 })();
