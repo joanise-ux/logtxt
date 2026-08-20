@@ -18,8 +18,28 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>▍</text></svg>">
+  <script>
+    // motyw ustawiamy przed pierwszym malowaniem — inaczej ekran startowy mrugnie ciemnym tłem
+    try {
+      var t = localStorage.getItem("logtxt.theme");
+      if (t) document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  </script>
 </head>
 <body>
+
+  <!-- ░░ ekran startowy: maszynowe wypisanie nazwy ░░ -->
+  <div class="boot-screen" id="bootScreen">
+    <div class="boot-inner mono">
+      <div class="boot-line">
+        <span class="boot-prompt">$</span>
+        <span class="boot-name" id="bootName"></span><span class="boot-caret" id="bootCaret" aria-hidden="true">▍</span>
+      </div>
+      <p class="boot-status" id="bootStatus"></p>
+      <div class="boot-bar" aria-hidden="true"><span class="boot-bar-fill" id="bootBarFill"></span></div>
+    </div>
+    <p class="sr-only" role="status">Wczytywanie log.txt</p>
+  </div>
 
   <!-- ░░ ekran logowania / rejestracji ░░ -->
   <div class="auth-screen" id="authScreen" hidden>
