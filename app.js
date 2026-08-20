@@ -2003,21 +2003,77 @@
     toast(ok ? `✓ przeniesiono ${total} wpisów` : "⚠ część wpisów się nie zapisała");
   }
 
+  /* ═══════════════ ekran startowy ═══════════════
+     Nazwa aplikacji wystukiwana znak po znaku, jak na terminalu. Leci przy
+     każdym starcie: i przed panelem logowania, i przed wejściem do dziennika. */
+  const bootScreen = $("#bootScreen");
+  const bootName = $("#bootName");
+  const bootStatus = $("#bootStatus");
+  const bootBarFill = $("#bootBarFill");
+  const BOOT_TEXT = "log.txt";
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // wystukanie nazwy; zwraca obietnicę spełnioną, gdy animacja się kończy
+  async function playBoot() {
+    if (reduceMotion) {
+      bootName.textContent = BOOT_TEXT;
+      bootScreen.classList.add("is-typed");
+      bootStatus.textContent = "// wczytywanie dziennika...";
+      bootBarFill.style.width = "100%";
+      return;
+    }
+    await wait(180);
+    for (const ch of BOOT_TEXT) {
+      bootName.textContent += ch;
+      // kropka to naturalna pauza w pisaniu — dłuższa niż zwykły znak
+      await wait(ch === "." ? 150 : 85);
+    }
+    bootScreen.classList.add("is-typed");
+    bootStatus.textContent = "// wczytywanie dziennika...";
+    bootBarFill.style.width = "100%";
+    await wait(420);
+  }
+
+  function setBootStatus(text) {
+    bootStatus.textContent = text;
+  }
+
+  async function finishBoot() {
+    bootScreen.classList.add("is-done");
+    await wait(reduceMotion ? 0 : 450);
+    bootScreen.hidden = true;
+  }
+
   /* ── start ── */
   renderCounts();
   (async () => {
+    const booted = playBoot();
     if (!LOGTXT.configured) {
       showAuth("login");
       $("#loginError").textContent = window.supabase
         ? "// błąd: brak klucza do backendu — uzupełnij config.js"
         : "// błąd: nie wczytał się klient bazy — odśwież stronę";
       loginForm.querySelector('button[type="submit"]').disabled = true;
+      await booted;
+      await finishBoot();
       return;
     }
     // sesja przeżywa odświeżenie strony, więc najpierw pytamy o nią Supabase
-    const user = await LOGTXT.auth.current();
-    if (user) await enterApp(user);
-    else showAuth("login");
+    let user = null;
+    try {
+      user = await LOGTXT.auth.current();
+    } catch { /* brak sesji traktujemy jak wylogowanie */ }
+    await booted;
+    if (user) {
+      // zalogowany: ekran startowy zostaje, aż dziennik będzie gotowy
+      setBootStatus("// synchronizacja wpisów...");
+      await enterApp(user);
+    } else {
+      showAuth("login");
+    }
+    await finishBoot();
   })();
   setInterval(refreshEntryFilename, 30000);
 
