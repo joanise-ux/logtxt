@@ -337,7 +337,14 @@ textarea:focus, input:focus {
   min-width: 0;
 }
 .entries-list-col .btn-block { margin-bottom: 0; }
-.entries-list-col .tag-filter { margin: 0; max-height: 88px; overflow-y: auto; }
+/* filtr tagów bywa długi — miękkie ścięcie zamiast ucinania chipów w pół */
+.entries-list-col .tag-filter {
+  margin: 0;
+  max-height: 92px;
+  overflow-y: auto;
+  mask-image: linear-gradient(180deg, #000 74%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, #000 74%, transparent 100%);
+}
 .entry-files {
   display: flex;
   flex-direction: column;
