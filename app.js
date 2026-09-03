@@ -32,6 +32,7 @@
 
   const PINNED_LIMIT = 4;
   const TASKS_PREVIEW_LIMIT = 5;
+  const MOTTO_COUNT = 6; // dash.motto.1 … dash.motto.6 w i18n
 
   let state = structuredClone(defaultState);
   let session = null; // { name, email } — ustawiane po zalogowaniu w Supabase
@@ -1691,6 +1692,13 @@
       dayWord: tr(streak === 1 ? "dash.dayOne" : "dash.dayMany"),
       today: todayCount,
     });
+
+    /* ── motto dnia: stałe dla danego dnia, zmienia się o północy ── */
+    const mottoEl = $("#mottoText");
+    if (mottoEl) {
+      const dayIndex = Math.floor(now.getTime() / 86400000);
+      mottoEl.textContent = tr(`dash.motto.${(dayIndex % MOTTO_COUNT) + 1}`);
+    }
 
     /* ── kafelki sekcji ── */
     const weekStart = startOfWeek();
