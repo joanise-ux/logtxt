@@ -97,6 +97,13 @@
     return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
   function dayKey(ts) { return fmtDate(ts); }
+  // nagłówek dnia nad grupą wpisów w bocznym pasku
+  function fmtDayLabel(ts) {
+    const k = dayKey(ts);
+    if (k === dayKey(Date.now())) return tr("entries.day.today");
+    if (k === dayKey(Date.now() - 86400e3)) return tr("entries.day.yesterday");
+    return k;
+  }
 
   function isoWeek(d) {
     const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -670,6 +677,7 @@
   /* ═══════════════ entries/ ═══════════════ */
   let activeTagFilter = null;
   let entryDraftAttachments = [];
+  let activeEntryId = null;  // wpis wybrany z bocznej listy (null → formularz)
   let editingEntryId = null; // wpis otwarty do edycji w miejscu
   let editingAttachments = []; // robocza lista załączników edytowanego wpisu
 
@@ -682,6 +690,14 @@
     getList: () => entryDraftAttachments,
     setList: (l) => { entryDraftAttachments = l; },
     getTextarea: () => $("#entryBody"),
+  });
+
+  $("#newEntryBtn").addEventListener("click", () => {
+    activeEntryId = null;
+    editingEntryId = null;
+    editingAttachments = [];
+    renderEntries();
+    $("#entryBody").focus();
   });
 
   $("#entryForm").addEventListener("submit", (e) => {
@@ -725,37 +741,96 @@
       ? state.entries.filter((e) => e.tags.includes(activeTagFilter))
       : state.entries;
 
-    $("#entryList").innerHTML = list.length
-      ? list.map(entryCard).join("")
-      : `<div class="empty-state">${escapeHtml(tr("entries.empty", { tag: activeTagFilter ? tr("entries.empty.tag", { tag: activeTagFilter }) : tr("entries.empty.today") }))}</div>`;
+    // zaznaczony wpis mógł zniknąć (kasowanie, filtr) — wracamy wtedy do formularza
+    if (activeEntryId && !list.some((e) => e.id === activeEntryId)) activeEntryId = null;
+    if (editingEntryId && editingEntryId !== activeEntryId) {
+      editingEntryId = null;
+      editingAttachments = [];
+    }
 
-    $$("#entryList .entry-edit").forEach((btn) =>
+    renderEntryFiles(list);
+    renderEntryDetail();
+  }
+
+  /* ── boczny pasek: wpisy jako lista plików, pogrupowane po dniach ── */
+  function renderEntryFiles(list) {
+    if (!list.length) {
+      $("#entryList").innerHTML = `<div class="empty-state empty-slim">${escapeHtml(tr("entries.empty", { tag: activeTagFilter ? tr("entries.empty.tag", { tag: activeTagFilter }) : tr("entries.empty.today") }))}</div>`;
+      return;
+    }
+
+    let lastDay = null;
+    const rows = list.map((e) => {
+      const k = dayKey(e.ts);
+      const head = k === lastDay ? "" : `<div class="entry-file-day mono">${escapeHtml(fmtDayLabel(e.ts))}</div>`;
+      lastDay = k;
+      const title = e.body.split("\n").find((l) => l.trim()) || "";
+      const label = title.trim() || tr("entries.file.noText");
+      const mood = moodOfDay(k);
+      return `${head}<button type="button" class="entry-file ${e.id === activeEntryId ? "active" : ""}" data-id="${e.id}">
+        <span class="entry-file-time mono">${fmtTime(e.ts)}</span>
+        <span class="entry-file-name">${escapeHtml(label.slice(0, 80))}</span>
+        ${mood ? `<span class="mood-cell l${mood} entry-file-mood" aria-hidden="true"></span>` : ""}
+        ${e.attachments && e.attachments.length ? `<span class="entry-file-clip mono" aria-hidden="true">◍</span>` : ""}
+      </button>`;
+    });
+    $("#entryList").innerHTML = rows.join("");
+
+    $$("#entryList .entry-file").forEach((btn) =>
       btn.addEventListener("click", () => {
-        const entry = state.entries.find((x) => x.id === btn.dataset.id);
-        if (!entry) return;
+        activeEntryId = btn.dataset.id;
+        renderEntries();
+      })
+    );
+  }
+
+  /* ── prawa kolumna: formularz albo wybrany wpis ── */
+  function renderEntryDetail() {
+    const entry = activeEntryId ? state.entries.find((e) => e.id === activeEntryId) : null;
+    $("#entryForm").hidden = !!entry;
+
+    if (!entry) {
+      $("#entryDetail").innerHTML = state.entries.length
+        ? `<div class="empty-state empty-hint">${escapeHtml(tr("entries.pickHint"))}</div>`
+        : "";
+      return;
+    }
+
+    $("#entryDetail").innerHTML = entryCard(entry);
+    bindEntryDetail(entry);
+  }
+
+  function bindEntryDetail(entry) {
+    const detail = $("#entryDetail");
+
+    const editBtn = detail.querySelector(".entry-edit");
+    if (editBtn) {
+      editBtn.addEventListener("click", () => {
         ensureAttachments(entry);
         editingEntryId = entry.id;
         // pracujemy na kopii — anulowanie zostawia wpis nietknięty
         editingAttachments = entry.attachments.map((a) => ({ ...a }));
-        renderEntries();
-        const ta = document.querySelector(`#entryList [data-item-id="${editingEntryId}"] .entry-edit-body`);
+        renderEntryDetail();
+        const ta = detail.querySelector(".entry-edit-body");
         if (ta) {
           autoGrow(ta);
           ta.focus();
           ta.setSelectionRange(ta.value.length, ta.value.length);
         }
-      })
-    );
+      });
+    }
 
-    $$("#entryList .entry-edit-cancel").forEach((btn) =>
-      btn.addEventListener("click", () => {
+    const cancelBtn = detail.querySelector(".entry-edit-cancel");
+    if (cancelBtn) {
+      cancelBtn.addEventListener("click", () => {
         editingEntryId = null;
         editingAttachments = [];
-        renderEntries();
-      })
-    );
+        renderEntryDetail();
+      });
+    }
 
-    $$("#entryList .entry-edit-form").forEach((form) => {
+    const form = detail.querySelector(".entry-edit-form");
+    if (form) {
       const ta = form.querySelector(".entry-edit-body");
       ta.addEventListener("input", () => autoGrow(ta));
 
@@ -771,8 +846,6 @@
 
       form.addEventListener("submit", (ev) => {
         ev.preventDefault();
-        const entry = state.entries.find((x) => x.id === form.dataset.id);
-        if (!entry) return;
         const body = ta.value.trim();
         // pusty wpis bez załączników nie ma sensu — nie pozwalamy się do niego cofnąć
         if (!body && editingAttachments.length === 0) {
@@ -795,20 +868,29 @@
         renderCounts();
         renderDashboard();
       });
-    });
+    }
 
-    $$("#entryList .entry-del").forEach((btn) =>
-      btn.addEventListener("click", () => {
-        const entry = state.entries.find((e) => e.id === btn.dataset.id);
-        if (!entry) return;
+    const delBtn = detail.querySelector(".entry-del");
+    if (delBtn) {
+      delBtn.addEventListener("click", () => {
         const label = entry.body.split("\n")[0].slice(0, 40) || fmtFile(entry.ts);
         deleteWithUndo("entries", entry.id, label, () => {
+          activeEntryId = null;
           renderEntries();
           renderCounts();
         });
-      })
-    );
+      });
+    }
 
+    const backBtn = detail.querySelector(".entry-back");
+    if (backBtn) {
+      backBtn.addEventListener("click", () => {
+        activeEntryId = null;
+        editingEntryId = null;
+        editingAttachments = [];
+        renderEntries();
+      });
+    }
   }
 
   // nastrój z danego dnia — używany jako mały kontekst przy wpisie
@@ -831,6 +913,7 @@
           <span class="entry-hash">${hashOf(e.id)}</span>
           <span class="entry-file">${fmtFile(e.ts)}</span>
           <span class="entry-editing-flag mono">${escapeHtml(tr("entries.edit.flag"))}</span>
+          <button type="button" class="entry-back mono" title="${escapeAttr(tr("entries.back"))}">← ${escapeHtml(tr("entries.backLabel"))}</button>
         </div>
         <textarea class="entry-edit-body" rows="4" spellcheck="true" placeholder="${escapeAttr(tr("entries.ph.body"))}">${escapeHtml(e.body)}</textarea>
         <div class="media-toolbar mono" data-host="entryEdit">
@@ -868,6 +951,7 @@
         <span class="entry-hash">${hashOf(e.id)}</span>
         <span class="entry-file">${fmtFile(e.ts)}</span>
         ${moodBadge}
+        <button class="entry-back mono" title="${escapeAttr(tr("entries.back"))}">← ${escapeHtml(tr("entries.backLabel"))}</button>
         <button class="entry-edit" data-id="${e.id}" title="${escapeAttr(tr("entries.edit.title"))}">edit</button>
         <button class="entry-del" data-id="${e.id}">rm</button>
       </div>
@@ -1747,7 +1831,7 @@
   function openItem(kind, id) {
     const view = KIND_VIEW[kind];
     if (kind === "note") activeNoteId = id;
-    if (kind === "entry") activeTagFilter = null;
+    if (kind === "entry") { activeTagFilter = null; activeEntryId = id; }
     if (kind === "task") {
       const t = state.tasks.find((x) => x.id === id);
       if (t && t.status === "done") doneOpen = true; // rozwiń sekcję, żeby dało się doskrolować

@@ -320,6 +320,78 @@ textarea:focus, input:focus {
 /* ── karty wpisów ── */
 .entry-list { display: flex; flex-direction: column; gap: 14px; }
 
+/* ═══ entries/: lista w bocznym pasku, treść po prawej ═══
+   przy dużej liczbie wpisów jedna długa kolumna gubiła kontekst */
+.entries-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 18px; align-items: start; }
+.entries-list-col {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: calc(100vh - 120px);
+  min-width: 0;
+}
+.entries-list-col .btn-block { margin-bottom: 0; }
+.entries-list-col .tag-filter { margin: 0; max-height: 88px; overflow-y: auto; }
+.entry-files {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  padding-right: 4px;
+  min-height: 0;
+}
+.entry-file-day {
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 10px 6px 4px;
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 1;
+}
+.entry-file {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  color: var(--text-dim);
+  text-align: left;
+  border: 1px solid transparent;
+  transition: background 0.18s var(--ease), color 0.18s var(--ease), border-color 0.18s var(--ease);
+  overflow: hidden;
+}
+.entry-file:hover { background: var(--bg-raised); color: var(--text); }
+.entry-file.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.entry-file-time { flex: 0 0 auto; font-size: 11px; color: var(--text-faint); }
+.entry-file.active .entry-file-time { color: inherit; }
+.entry-file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entry-file-mood { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 3px; }
+.entry-file-clip { flex: 0 0 auto; font-size: 10px; color: var(--text-faint); }
+
+.entries-main { min-width: 0; }
+/* w prawej kolumnie karta jest jedna — akcje nie muszą się chować za hoverem */
+.entries-main .entry-edit, .entries-main .entry-del { opacity: 1; }
+.entries-main .entry-form[hidden] { display: none; }
+.empty-slim { padding: 20px 12px; font-size: 12px; }
+.empty-hint { margin-top: 0; }
+
+/* powrót z wybranego wpisu do formularza */
+.entry-back {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-faint);
+  transition: color 0.2s var(--ease);
+}
+.entry-back:hover { color: var(--accent-3); }
+.entry-back + .entry-edit { margin-left: 0; }
+.entry-editing-flag + .entry-back { margin-left: 12px; }
+
 .entry-card {
   background: var(--bg-panel);
   border: 1px solid var(--border-soft);
@@ -1572,6 +1644,9 @@ button.status-head:hover { color: var(--text); }
   .dash-hello-mark { width: 34px; height: 34px; }
   .dash-col { gap: 12px; }
   .notes-layout { grid-template-columns: 1fr; }
+  .entries-layout { grid-template-columns: 1fr; }
+  .entries-list-col { position: static; max-height: none; }
+  .entry-files { max-height: 42vh; }
   .mood-scale { gap: 6px; }
   .form-row { flex-wrap: wrap; }
   .form-row input { min-width: 140px; }

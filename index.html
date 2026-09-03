@@ -352,27 +352,38 @@
             <p class="view-sub" data-i18n="entries.sub">// twoje wpisy — każdy jak osobny plik</p>
           </div>
 
-          <form class="entry-form panel" id="entryForm">
-            <div class="panel-title mono">
-              <span class="dim">$</span> <span data-i18n="entries.newEntry">nowy wpis →</span> <span class="accent" id="entryFilename"></span>
+          <!-- lista wpisów żyje w bocznym pasku, treść po prawej — przy setkach
+               wpisów przewijanie jednej długiej kolumny gubiło kontekst -->
+          <div class="entries-layout">
+            <div class="entries-list-col">
+              <button class="btn btn-primary mono btn-block" id="newEntryBtn" data-i18n="entries.newBtn">+ nowy wpis</button>
+              <div class="tag-filter mono" id="tagFilter"></div>
+              <div class="entry-files" id="entryList"></div>
             </div>
-            <textarea id="entryBody" rows="5" placeholder="$ napisz coś..." data-i18n-ph="entries.ph.body" spellcheck="true"></textarea>
-            <div class="media-toolbar mono" data-host="entry">
-              <button type="button" class="media-btn" data-act="photo-file"><span class="mb-ico">+</span> <span data-i18n="media.addPhoto">dodaj zdjęcie</span></button>
-              <button type="button" class="media-btn" data-act="photo-url"><span class="mb-ico">↗</span> <span data-i18n="media.fromUrl">z URL</span></button>
-              <button type="button" class="media-btn media-rec" data-act="rec"><span class="mb-dot"></span> <span data-i18n="media.record">nagraj</span></button>
-              <span class="media-hint dim" data-hint></span>
-            </div>
-            <div class="media-attachments" id="entryAttachments"></div>
-            <div class="form-row">
-              <input type="text" id="entryTags" class="mono" placeholder="#refleksja #praca #pomysł" data-i18n-ph="entries.ph.tags">
-              <button type="submit" class="btn btn-primary mono">git commit</button>
-            </div>
-            <input type="file" id="entryFileInput" accept="image/jpeg,image/png,image/webp" hidden>
-          </form>
 
-          <div class="tag-filter mono" id="tagFilter"></div>
-          <div class="entry-list" id="entryList"></div>
+            <div class="entries-main">
+              <form class="entry-form panel" id="entryForm">
+                <div class="panel-title mono">
+                  <span class="dim">$</span> <span data-i18n="entries.newEntry">nowy wpis →</span> <span class="accent" id="entryFilename"></span>
+                </div>
+                <textarea id="entryBody" rows="5" placeholder="$ napisz coś..." data-i18n-ph="entries.ph.body" spellcheck="true"></textarea>
+                <div class="media-toolbar mono" data-host="entry">
+                  <button type="button" class="media-btn" data-act="photo-file"><span class="mb-ico">+</span> <span data-i18n="media.addPhoto">dodaj zdjęcie</span></button>
+                  <button type="button" class="media-btn" data-act="photo-url"><span class="mb-ico">↗</span> <span data-i18n="media.fromUrl">z URL</span></button>
+                  <button type="button" class="media-btn media-rec" data-act="rec"><span class="mb-dot"></span> <span data-i18n="media.record">nagraj</span></button>
+                  <span class="media-hint dim" data-hint></span>
+                </div>
+                <div class="media-attachments" id="entryAttachments"></div>
+                <div class="form-row">
+                  <input type="text" id="entryTags" class="mono" placeholder="#refleksja #praca #pomysł" data-i18n-ph="entries.ph.tags">
+                  <button type="submit" class="btn btn-primary mono">git commit</button>
+                </div>
+                <input type="file" id="entryFileInput" accept="image/jpeg,image/png,image/webp" hidden>
+              </form>
+
+              <div class="entry-detail" id="entryDetail"></div>
+            </div>
+          </div>
         </section>
 
         <!-- ═══ mood.log ═══ -->
