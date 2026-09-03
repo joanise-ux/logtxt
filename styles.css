@@ -1403,21 +1403,25 @@ button.status-head:hover { color: var(--text); }
   cursor: zoom-out;
 }
 .att-image.zoomed:hover img { transform: none; }
-.att-caption {
+.attachment .att-caption {
   width: 100%;
   margin-top: 10px;
-  padding: 6px 8px;
+  padding: 7px 10px;
   background: transparent;
   border: none;
-  border-radius: 0;
+  border-radius: 14px;
   font-size: 12px;
   text-align: center;
   color: var(--text-dim);
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
 }
-.att-caption:focus {
+.attachment .att-caption:hover { background: color-mix(in srgb, var(--bg-panel) 60%, transparent); }
+.attachment .att-caption:focus {
   outline: none;
-  color: var(--text);
+  border: none;
   box-shadow: none;
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg-panel) 85%, transparent);
 }
 .att-caption-view {
   margin-top: 10px;

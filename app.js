@@ -263,7 +263,8 @@
 
   function showView(name) {
     activeView = name;
-    if (name !== "entries") editingEntryId = null; // edycja nie przeżywa wyjścia z sekcji
+    // edycja nie przeżywa wyjścia z sekcji
+    if (name !== "entries") { editingEntryId = null; editingAttachments = []; }
     $$(".nav-item").forEach((b) => b.classList.toggle("active", b.dataset.view === name));
     $$(".view").forEach((v) => v.classList.toggle("active", v.dataset.view === name));
     const moreBtn = document.getElementById("bottomNavMore");
@@ -670,6 +671,7 @@
   let activeTagFilter = null;
   let entryDraftAttachments = [];
   let editingEntryId = null; // wpis otwarty do edycji w miejscu
+  let editingAttachments = []; // robocza lista załączników edytowanego wpisu
 
   function refreshEntryFilename() {
     $("#entryFilename").textContent = fmtFile(Date.now());
@@ -729,7 +731,12 @@
 
     $$("#entryList .entry-edit").forEach((btn) =>
       btn.addEventListener("click", () => {
-        editingEntryId = btn.dataset.id;
+        const entry = state.entries.find((x) => x.id === btn.dataset.id);
+        if (!entry) return;
+        ensureAttachments(entry);
+        editingEntryId = entry.id;
+        // pracujemy na kopii — anulowanie zostawia wpis nietknięty
+        editingAttachments = entry.attachments.map((a) => ({ ...a }));
         renderEntries();
         const ta = document.querySelector(`#entryList [data-item-id="${editingEntryId}"] .entry-edit-body`);
         if (ta) {
@@ -743,6 +750,7 @@
     $$("#entryList .entry-edit-cancel").forEach((btn) =>
       btn.addEventListener("click", () => {
         editingEntryId = null;
+        editingAttachments = [];
         renderEntries();
       })
     );
@@ -750,22 +758,39 @@
     $$("#entryList .entry-edit-form").forEach((form) => {
       const ta = form.querySelector(".entry-edit-body");
       ta.addEventListener("input", () => autoGrow(ta));
+
+      // pełny pasek mediów w edycji: dodawanie zdjęć, nagrywanie, usuwanie —
+      // host powstaje na nowo przy każdym renderze karty
+      const media = setupMediaHost({
+        host: "entryEdit",
+        getList: () => editingAttachments,
+        setList: (l) => { editingAttachments = l; },
+        getTextarea: () => ta,
+      });
+      media.render();
+
       form.addEventListener("submit", (ev) => {
         ev.preventDefault();
         const entry = state.entries.find((x) => x.id === form.dataset.id);
         if (!entry) return;
         const body = ta.value.trim();
-        ensureAttachments(entry);
         // pusty wpis bez załączników nie ma sensu — nie pozwalamy się do niego cofnąć
-        if (!body && entry.attachments.length === 0) {
+        if (!body && editingAttachments.length === 0) {
           toast(tr("entries.edit.empty"));
+          return;
+        }
+        // trwa jeszcze wysyłka zdjęcia — zapis czekałby na ścieżkę, więc prosimy o chwilę
+        if (editingAttachments.some((a) => a.loading || a.transcribing)) {
+          toast(tr("entries.edit.busy"));
           return;
         }
         entry.body = body;
         entry.tags = (form.querySelector(".entry-edit-tags").value.match(/#[\p{L}\p{N}_-]+/gu) || [])
           .map((t) => t.toLowerCase());
+        entry.attachments = editingAttachments;
         if (saveState()) toast(tr("entries.edit.saved"));
         editingEntryId = null;
+        editingAttachments = [];
         renderEntries();
         renderCounts();
         renderDashboard();
@@ -800,9 +825,6 @@
 
   function entryEditCard(e) {
     ensureAttachments(e);
-    const attHtml = e.attachments.length
-      ? `<div class="media-attachments media-view">${renderAttachmentsList(e.attachments, { editable: false })}</div>`
-      : "";
     return `<article class="entry-card entry-card-editing" data-item-id="${e.id}">
       <form class="entry-edit-form" data-id="${e.id}">
         <div class="entry-meta">
@@ -811,7 +833,14 @@
           <span class="entry-editing-flag mono">${escapeHtml(tr("entries.edit.flag"))}</span>
         </div>
         <textarea class="entry-edit-body" rows="4" spellcheck="true" placeholder="${escapeAttr(tr("entries.ph.body"))}">${escapeHtml(e.body)}</textarea>
-        ${attHtml}
+        <div class="media-toolbar mono" data-host="entryEdit">
+          <button type="button" class="media-btn" data-act="photo-file"><span class="mb-ico">+</span> ${escapeHtml(tr("media.addPhoto"))}</button>
+          <button type="button" class="media-btn" data-act="photo-url"><span class="mb-ico">↗</span> ${escapeHtml(tr("media.fromUrl"))}</button>
+          <button type="button" class="media-btn media-rec" data-act="rec"><span class="mb-dot"></span> ${escapeHtml(tr("media.record"))}</button>
+          <span class="media-hint dim" data-hint></span>
+        </div>
+        <div class="media-attachments" id="entryEditAttachments"></div>
+        <input type="file" id="entryEditFileInput" accept="image/jpeg,image/png,image/webp" hidden>
         <div class="form-row entry-edit-row">
           <input type="text" class="entry-edit-tags mono" value="${escapeAttr(e.tags.join(" "))}" placeholder="${escapeAttr(tr("entries.ph.tags"))}">
           <button type="button" class="btn mono entry-edit-cancel">${escapeHtml(tr("entries.edit.cancel"))}</button>

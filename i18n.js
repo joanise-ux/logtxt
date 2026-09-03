@@ -146,6 +146,7 @@
       "entries.edit.cancel": "anuluj",
       "entries.edit.saved": "Zapisano ✓ wpis zaktualizowany",
       "entries.edit.empty": "// wpis nie może być pusty",
+      "entries.edit.busy": "// poczekaj — trwa wysyłka załącznika",
 
       /* ── mood ── */
       "mood.sub": "// jak się dziś czujesz? zapisz stan procesu",
@@ -370,6 +371,7 @@
       "entries.edit.cancel": "cancel",
       "entries.edit.saved": "Saved ✓ entry updated",
       "entries.edit.empty": "// an entry can't be empty",
+      "entries.edit.busy": "// hold on — an attachment is still uploading",
 
       /* ── mood ── */
       "mood.sub": "// how do you feel today? log the process state",
