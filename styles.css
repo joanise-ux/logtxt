@@ -352,11 +352,9 @@ textarea:focus, input:focus {
   background: var(--bg-raised);
   color: var(--text-dim);
   border: 1px solid var(--border-soft);
-  cursor: pointer;
-  transition: color 0.18s var(--ease), border-color 0.18s var(--ease), box-shadow 0.18s var(--ease);
+  cursor: default;
 }
 .entry-mood .mood-cell { width: 10px; height: 10px; border-radius: 3px; }
-.entry-mood:hover { color: var(--accent-2); border-color: var(--accent-2); box-shadow: var(--glow-2); }
 .em-lvl { line-height: 1; }
 
 .entry-del {
@@ -369,6 +367,40 @@ textarea:focus, input:focus {
 }
 .entry-card:hover .entry-del { opacity: 1; }
 .entry-del:hover { color: var(--accent-2); }
+
+/* edycja wpisu w miejscu — ten sam „plik", tylko otwarty do zapisu */
+.entry-edit {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.2s var(--ease), color 0.2s var(--ease);
+}
+.entry-edit + .entry-del { margin-left: 0; }
+.entry-card:hover .entry-edit { opacity: 1; }
+/* na dotyku nie ma hovera — akcje wpisu muszą być widoczne od razu */
+@media (hover: none) {
+  .entry-card .entry-edit, .entry-card .entry-del { opacity: 1; }
+}
+.entry-edit:hover { color: var(--accent); }
+
+.entry-card-editing {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow: var(--glow);
+}
+.entry-editing-flag { margin-left: auto; color: var(--accent); font-size: 11px; }
+.entry-edit-body {
+  width: 100%;
+  min-height: 90px;
+  resize: vertical;
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+.entry-edit-row { flex-wrap: wrap; }
+.entry-edit-row .entry-edit-tags { flex: 1 1 200px; }
+.entry-edit-cancel { color: var(--text-faint); border-color: var(--border); }
+.entry-edit-cancel:hover { color: var(--accent-2); border-color: var(--accent-2); }
 
 .entry-body { font-size: 14.5px; white-space: pre-wrap; word-wrap: break-word; }
 .entry-tags { margin-top: 10px; }
@@ -459,6 +491,16 @@ textarea:focus, input:focus {
 }
 .qa-key { color: var(--accent); }
 .qa-key.qa-rec { color: var(--accent-2); font-size: 10px; }
+
+/* ── nastrój na dashboardzie: jedyne miejsce, z którego wchodzi się do mood.log ── */
+.dash-mood .dash-card-label { display: flex; align-items: center; gap: 8px; }
+.dash-mood-scale { gap: 8px; }
+.dash-mood-scale .mood-btn { padding: 10px 4px; gap: 5px; font-size: 11.5px; }
+.dash-mood-status {
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
 
 /* ── motto dnia: karta kontrastowa ── */
 .dash-motto {
@@ -1298,7 +1340,7 @@ button.status-head:hover { color: var(--text); }
 .media-attachments {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   margin-top: 12px;
 }
 .media-attachments:empty { display: none; }
@@ -1317,51 +1359,72 @@ button.status-head:hover { color: var(--text); }
   padding: 12px;
 }
 
-.att-image { padding: 8px 10px 10px; }
+/* zdjęcia jako duże panele w stylu folderu z iOS: matowe, rozmyte tło,
+   mocno zaokrąglony kadr i podpis pod spodem niczym nazwa folderu */
+.att-image {
+  padding: 14px 14px 10px;
+  border-left-width: 1px;
+  border-radius: 26px;
+  background: color-mix(in srgb, var(--bg-raised) 72%, transparent);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  border-color: color-mix(in srgb, var(--border) 70%, transparent);
+  box-shadow:
+    0 10px 30px -18px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent);
+}
 .att-image-frame {
   position: relative;
-  border: 1px dashed var(--border);
-  border-radius: 4px;
-  padding: 4px;
-  background: var(--bg-panel);
+  border: none;
+  border-radius: 20px;
+  padding: 0;
+  background: color-mix(in srgb, var(--bg-panel) 80%, transparent);
   overflow: hidden;
-  display: flex;
-  justify-content: center;
+  display: block;
+  aspect-ratio: 4 / 3;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-soft) 80%, transparent);
 }
 .att-image img {
-  max-width: 100%;
-  max-height: 340px;
-  height: auto;
-  border-radius: 3px;
-  cursor: zoom-in;
-  transition: max-height 0.3s var(--ease);
-}
-.att-image img.zoomed {
+  width: 100%;
+  height: 100%;
   max-height: none;
+  object-fit: cover;
+  border-radius: 20px;
+  cursor: zoom-in;
+  display: block;
+  transition: transform 0.35s var(--ease);
+}
+.att-image:hover img { transform: scale(1.015); }
+/* rozwinięty kadr — pełne zdjęcie, bez przycinania */
+.att-image.zoomed .att-image-frame { aspect-ratio: auto; }
+.att-image.zoomed img {
+  height: auto;
+  object-fit: contain;
   cursor: zoom-out;
 }
+.att-image.zoomed:hover img { transform: none; }
 .att-caption {
   width: 100%;
-  margin-top: 8px;
+  margin-top: 10px;
   padding: 6px 8px;
   background: transparent;
   border: none;
-  border-top: 1px dashed var(--border-soft);
   border-radius: 0;
   font-size: 12px;
+  text-align: center;
   color: var(--text-dim);
 }
 .att-caption:focus {
   outline: none;
-  border-top-color: var(--accent-3);
   color: var(--text);
   box-shadow: none;
 }
 .att-caption-view {
-  margin-top: 8px;
+  margin-top: 10px;
   font-size: 12px;
   color: var(--text-dim);
   padding: 0 2px;
+  text-align: center;
 }
 .att-del {
   position: absolute;
@@ -1378,6 +1441,13 @@ button.status-head:hover { color: var(--text); }
   z-index: 2;
 }
 .attachment:hover .att-del { opacity: 1; }
+.att-image .att-del {
+  top: 12px; right: 12px;
+  border-radius: 20px;
+  padding: 3px 10px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
 .att-del:hover { color: var(--accent-2); border-color: var(--accent-2); }
 
 .att-audio { padding: 10px 12px; }
@@ -1476,6 +1546,7 @@ button.status-head:hover { color: var(--text); }
   .dash-actions .qa-btn { width: auto; flex: 1 1 160px; }
   /* kolumny znikają — karty wchodzą wprost do siatki, żeby dało się je przestawić */
   .dash-col { display: contents; }
+  .dash-mood { order: 0; }
   .dash-motto { order: 1; }
   .recent-panel { order: 2; }
   .pinned-panel { order: 3; }
