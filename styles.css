@@ -415,6 +415,19 @@ textarea:focus, input:focus {
 }
 
 .dash-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+/* ── podsumowanie tygodnia: pasek przez całą szerokość, nad obiema kolumnami ── */
+.dash-summary-card { grid-column: 1 / -1; }
+.dash-summary {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  margin: -6px 0 14px;
+  line-height: 1.7;
+}
+.dash-summary .sum-val { color: var(--text); }
+.dash-summary .sum-up { color: var(--accent); }
+.dash-summary .sum-down { color: var(--accent-warn); }
+.dash-summary .sum-flat { color: var(--text-faint); }
 .dash-col .panel { margin-bottom: 0; }
 
 /* ── powitanie ── */
@@ -482,7 +495,7 @@ textarea:focus, input:focus {
 /* ── kafelki sekcji ── */
 .dash-tiles {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 10px;
 }
 .tile {
@@ -495,7 +508,6 @@ textarea:focus, input:focus {
   min-width: 0;
   transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease), transform 0.2s var(--ease), background 0.35s var(--ease);
 }
-.tile:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .tile:hover, .tile:focus-visible {
   border-color: var(--accent);
   box-shadow: var(--glow);
@@ -1480,9 +1492,7 @@ button.status-head:hover { color: var(--text); }
   .recent-panel { order: 2; }
   .pinned-panel { order: 3; }
   .dash-goals { order: 4; }
-  .dash-sections { order: 5; }
   .dash-tiles { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-  .tile:last-child:nth-child(odd) { grid-column: auto; }
 }
 
 @media (max-width: 760px) {

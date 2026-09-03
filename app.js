@@ -1703,6 +1703,38 @@
     /* ── kafelki sekcji ── */
     const weekStart = startOfWeek();
     const weekEntries = state.entries.filter((e) => e.ts >= weekStart).length;
+
+    /* ── szybka analiza tygodnia ──
+       tydzień liczymy od poniedziałku, trend nastroju względem siedmiu dni przed nim */
+    const weekMoods = state.moods.filter((m) => m.ts >= weekStart);
+    const prevStart = weekStart - 7 * 86400000;
+    const prevMoods = state.moods.filter((m) => m.ts >= prevStart && m.ts < weekStart);
+    const avg = (arr) => arr.reduce((sum, m) => sum + m.level, 0) / arr.length;
+    const dec = tr("num.decimal");
+    const fmtAvg = (arr) => avg(arr).toFixed(1).replace(".", dec);
+
+    let moodChunk = "—";
+    if (weekMoods.length) {
+      let trend = "";
+      if (prevMoods.length) {
+        const diff = avg(weekMoods) - avg(prevMoods);
+        // 0,2 stopnia to jeszcze szum, nie zmiana nastroju
+        const [cls, mark] = diff > 0.2 ? ["sum-up", "↑"] : diff < -0.2 ? ["sum-down", "↓"] : ["sum-flat", "→"];
+        trend = ` <span class="${cls}">${mark}</span>`;
+      }
+      moodChunk = `${fmtAvg(weekMoods)}/5${trend}`;
+    }
+
+    const weekAll = all.filter((x) => x.ts >= weekStart);
+    const weekDays = new Set(weekAll.map((x) => dayKey(x.ts))).size;
+    const openTasks = state.tasks.filter((t) => t.status !== "done").length;
+
+    $("#dashSummary").innerHTML = tr("dash.summary", {
+      entries: `<span class="sum-val">${weekEntries}</span>`,
+      mood: `<span class="sum-val">${moodChunk}</span>`,
+      days: `<span class="sum-val">${weekDays}</span>`,
+      open: `<span class="sum-val">${openTasks}</span>`,
+    });
     const lastEntry = state.entries[0];
     const lastMood = state.moods[0];
     const moodTrend = state.moods.slice(0, 7).reverse();

@@ -291,7 +291,14 @@
               </div>
             </div>
 
-            <!-- ── kolumna główna: log aktywności, przypięte, zadania ── -->
+            <!-- ── podsumowanie tygodnia + skróty do sekcji ── -->
+            <div class="dash-card dash-summary-card">
+              <div class="dash-card-label mono"><span class="dim">$</span> stat --week</div>
+              <p class="dash-summary mono" id="dashSummary"></p>
+              <div class="dash-tiles" id="dashTiles"></div>
+            </div>
+
+            <!-- ── kolumna główna: log aktywności + przypięte ── -->
             <div class="dash-col dash-col-main">
               <div class="panel recent-panel">
                 <div class="panel-title mono"><span class="dim">$</span> tail -n 6 recent_activity.log</div>
@@ -307,6 +314,15 @@
                 </div>
                 <div class="pinned-list" id="pinnedList"></div>
               </div>
+            </div>
+
+            <!-- ── kolumna boczna: motto dnia + otwarte zadania ── -->
+            <div class="dash-col dash-col-side">
+              <div class="dash-card dash-motto" id="dashMotto">
+                <span class="motto-label mono" data-i18n="dash.motto.label">// motto dnia</span>
+                <p class="motto-text" id="mottoText"></p>
+                <span class="motto-mark" aria-hidden="true">▍</span>
+              </div>
 
               <div class="panel tasks-preview-panel dash-goals" id="tasksPreviewPanel">
                 <div class="panel-title mono">
@@ -316,20 +332,6 @@
                   <button type="button" class="panel-link mono" id="tasksAllLink" hidden data-i18n="dash.tasks.all">zobacz wszystkie zadania →</button>
                 </div>
                 <div class="tasks-preview-list" id="tasksPreviewList"></div>
-              </div>
-            </div>
-
-            <!-- ── kolumna boczna: motto dnia + skróty do sekcji ── -->
-            <div class="dash-col dash-col-side">
-              <div class="dash-card dash-motto" id="dashMotto">
-                <span class="motto-label mono" data-i18n="dash.motto.label">// motto dnia</span>
-                <p class="motto-text" id="mottoText"></p>
-                <span class="motto-mark" aria-hidden="true">▍</span>
-              </div>
-
-              <div class="dash-card dash-sections">
-                <div class="dash-card-label mono"><span class="dim">$</span> ls ~/</div>
-                <div class="dash-tiles" id="dashTiles"></div>
               </div>
             </div>
 
