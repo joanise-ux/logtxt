@@ -355,7 +355,8 @@
           <!-- lista wpisów żyje w bocznym pasku, treść po prawej — przy setkach
                wpisów przewijanie jednej długiej kolumny gubiło kontekst -->
           <div class="entries-layout">
-            <div class="entries-list-col">
+            <div class="entries-list-col panel">
+              <div class="panel-title mono"><span class="dim">$</span> ls entries/</div>
               <button class="btn btn-primary mono btn-block" id="newEntryBtn" data-i18n="entries.newBtn">+ nowy wpis</button>
               <div class="tag-filter mono" id="tagFilter"></div>
               <div class="entry-files" id="entryList"></div>
@@ -441,7 +442,8 @@
           </div>
 
           <div class="notes-layout">
-            <div class="notes-list-col">
+            <div class="notes-list-col panel">
+              <div class="panel-title mono"><span class="dim">$</span> ls notes/</div>
               <button class="btn btn-primary mono btn-block" id="newNoteBtn" data-i18n="notes.new">+ touch nowa.md</button>
               <div class="note-files" id="noteFiles"></div>
             </div>
