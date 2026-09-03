@@ -349,7 +349,7 @@
 
         <!-- ═══ entries/ ═══ -->
         <section class="view" data-view="entries">
-          <div class="view-grid">
+          <div class="view-grid view-grid-entries">
 
             <div class="view-hero">
               <div class="view-hero-text">
@@ -359,7 +359,16 @@
               <span class="view-hero-mark mono" aria-hidden="true">▍</span>
             </div>
 
-            <div class="view-col view-col-main">
+            <!-- lista wpisów jako wyspa obok treści — jak w notes/; przy setkach
+                 wpisów przewijanie jednej długiej kolumny gubiło kontekst -->
+            <div class="dash-card entries-list-col">
+              <div class="dash-card-label mono"><span class="dim">$</span> ls entries/</div>
+              <button class="btn btn-primary mono btn-block" id="newEntryBtn" data-i18n="entries.newBtn">+ nowy wpis</button>
+              <div class="tag-filter mono" id="tagFilter"></div>
+              <div class="entry-files" id="entryList"></div>
+            </div>
+
+            <div class="entries-main">
               <form class="entry-form panel" id="entryForm">
                 <div class="panel-title mono">
                   <span class="dim">$</span> <span data-i18n="entries.newEntry">nowy wpis →</span> <span class="accent" id="entryFilename"></span>
@@ -379,14 +388,7 @@
                 <input type="file" id="entryFileInput" accept="image/jpeg,image/png,image/webp" hidden>
               </form>
 
-              <div class="entry-list" id="entryList"></div>
-            </div>
-
-            <div class="view-col view-col-side">
-              <div class="dash-card tags-card">
-                <div class="dash-card-label mono"><span class="dim">$</span> grep --tag</div>
-                <div class="tag-filter mono" id="tagFilter"></div>
-              </div>
+              <div class="entry-detail" id="entryDetail"></div>
             </div>
 
           </div>
@@ -585,6 +587,15 @@
     <button type="button" class="undo-btn" id="undoBtn" data-i18n="app.undo.btn">[cofnij]</button>
     <span class="undo-count dim" id="undoCount">15s</span>
     <span class="undo-progress" aria-hidden="true"><span class="undo-progress-fill" id="undoFill"></span></span>
+  </div>
+
+  <!-- podgląd zdjęcia na cały ekran — otwierany kliknięciem w ikonę folderu -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" data-i18n-aria="media.aria.viewer" aria-label="Podgląd zdjęcia" hidden>
+    <button type="button" class="lightbox-close mono" id="lightboxClose" data-i18n-aria="media.close" aria-label="Zamknij podgląd">esc ✕</button>
+    <button type="button" class="lightbox-nav lightbox-prev mono" id="lightboxPrev" data-i18n-aria="media.prev" aria-label="Poprzednie zdjęcie">‹</button>
+    <img id="lightboxImg" alt="">
+    <p class="lightbox-caption mono" id="lightboxCaption"></p>
+    <button type="button" class="lightbox-nav lightbox-next mono" id="lightboxNext" data-i18n-aria="media.next" aria-label="Następne zdjęcie">›</button>
   </div>
 
   <div class="sidebar-scrim" id="scrim"></div>

@@ -97,6 +97,13 @@
     return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
   function dayKey(ts) { return fmtDate(ts); }
+  // nagłówek dnia nad grupą wpisów w bocznym pasku
+  function fmtDayLabel(ts) {
+    const k = dayKey(ts);
+    if (k === dayKey(Date.now())) return tr("entries.day.today");
+    if (k === dayKey(Date.now() - 86400e3)) return tr("entries.day.yesterday");
+    return k;
+  }
 
   function isoWeek(d) {
     const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -263,7 +270,8 @@
 
   function showView(name) {
     activeView = name;
-    if (name !== "entries") editingEntryId = null; // edycja nie przeżywa wyjścia z sekcji
+    // edycja nie przeżywa wyjścia z sekcji
+    if (name !== "entries") { editingEntryId = null; editingAttachments = []; }
     $$(".nav-item").forEach((b) => b.classList.toggle("active", b.dataset.view === name));
     $$(".view").forEach((v) => v.classList.toggle("active", v.dataset.view === name));
     const moreBtn = document.getElementById("bottomNavMore");
@@ -397,10 +405,18 @@
       if (a.loading) return `<div class="attachment att-loading mono"><span class="dim">// ${escapeHtml(a.loadingMsg || tr("media.uploading"))}</span></div>`;
       const cap = editable
         ? `<input type="text" class="att-caption mono" data-id="${a.id}" value="${escapeAttr(a.caption || "")}" placeholder="${escapeAttr(tr("media.ph.caption"))}">`
-        : (a.caption ? `<figcaption class="att-caption-view mono">// ${escapeHtml(a.caption)}</figcaption>` : "");
-      const del = editable ? `<button type="button" class="att-del mono" data-id="${a.id}" title="${escapeAttr(tr("media.delete"))}">rm</button>` : "";
+        : (a.caption ? `<figcaption class="att-caption-view mono">${escapeHtml(a.caption)}</figcaption>` : "");
+      const del = editable ? `<button type="button" class="att-del mono" data-id="${a.id}" title="${escapeAttr(tr("media.delete"))}">✕</button>` : "";
+      // zdjęcie jako mała ikona folderu — pełny kadr otwiera podgląd na cały ekran
       return `<figure class="attachment att-image" data-att="${a.id}">
-        <div class="att-image-frame"><img src="${escapeAttr(a.src)}" alt="${escapeAttr(a.caption || "")}" loading="lazy">${del}</div>
+        <button type="button" class="att-folder" data-zoom title="${escapeAttr(tr("media.open"))}">
+          <span class="folder-tab" aria-hidden="true"></span>
+          <span class="folder-body">
+            <img src="${escapeAttr(a.src)}" alt="${escapeAttr(a.caption || "")}" loading="lazy">
+            <span class="folder-front" aria-hidden="true"></span>
+          </span>
+        </button>
+        ${del}
         ${cap}
       </figure>`;
     }
@@ -427,11 +443,74 @@
     return "";
   }
 
-  // klik w zdjęcie rozwija panel do pełnego kadru — działa w edytorze,
-  // w karcie wpisu i w podglądzie notatki, stąd jedna delegacja na dokument
+  /* ── podgląd zdjęcia na cały ekran ──
+     klik w ikonę folderu otwiera lightbox; strzałki i klawiatura chodzą po
+     zdjęciach z tego samego wpisu / notatki */
+  const lightbox = $("#lightbox");
+  let lightboxGroup = [];
+  let lightboxIndex = 0;
+
+  function showLightboxAt(i) {
+    if (!lightboxGroup.length) return;
+    lightboxIndex = (i + lightboxGroup.length) % lightboxGroup.length;
+    const cur = lightboxGroup[lightboxIndex];
+    $("#lightboxImg").src = cur.src;
+    $("#lightboxImg").alt = cur.caption;
+    $("#lightboxCaption").textContent = cur.caption
+      ? (lightboxGroup.length > 1 ? `// ${cur.caption} · ${lightboxIndex + 1}/${lightboxGroup.length}` : `// ${cur.caption}`)
+      : (lightboxGroup.length > 1 ? `// ${lightboxIndex + 1}/${lightboxGroup.length}` : "");
+    const multi = lightboxGroup.length > 1;
+    $("#lightboxPrev").hidden = !multi;
+    $("#lightboxNext").hidden = !multi;
+  }
+
+  function openLightbox(fig) {
+    const host = fig.closest(".media-attachments") || fig.parentElement;
+    const figs = [...host.querySelectorAll(".att-image")];
+    lightboxGroup = figs.map((f) => {
+      const img = f.querySelector("img");
+      const capInput = f.querySelector(".att-caption");
+      const capView = f.querySelector(".att-caption-view");
+      return {
+        src: img ? img.src : "",
+        caption: capInput ? capInput.value : (capView ? capView.textContent.trim() : ""),
+      };
+    });
+    showLightboxAt(figs.indexOf(fig));
+    lightbox.hidden = false;
+    document.body.classList.add("lightbox-open");
+    $("#lightboxClose").focus();
+  }
+
+  function closeLightbox() {
+    lightbox.hidden = true;
+    $("#lightboxImg").src = "";
+    document.body.classList.remove("lightbox-open");
+  }
+
+  // jedna delegacja na dokument — ikony powstają w edytorze, w karcie wpisu
+  // i w podglądzie notatki, każda po swoim renderze
   document.addEventListener("click", (ev) => {
-    const img = ev.target.closest(".att-image img");
-    if (img) img.closest(".att-image").classList.toggle("zoomed");
+    const folder = ev.target.closest("[data-zoom]");
+    if (folder) {
+      ev.preventDefault();
+      openLightbox(folder.closest(".att-image"));
+    }
+  });
+
+  lightbox.addEventListener("click", (ev) => {
+    // klik w tło zamyka; klik w samo zdjęcie zostawia podgląd otwarty
+    if (ev.target === lightbox || ev.target.id === "lightboxCaption") closeLightbox();
+  });
+  $("#lightboxClose").addEventListener("click", closeLightbox);
+  $("#lightboxPrev").addEventListener("click", () => showLightboxAt(lightboxIndex - 1));
+  $("#lightboxNext").addEventListener("click", () => showLightboxAt(lightboxIndex + 1));
+
+  document.addEventListener("keydown", (ev) => {
+    if (lightbox.hidden) return;
+    if (ev.key === "Escape") { ev.preventDefault(); closeLightbox(); }
+    else if (ev.key === "ArrowLeft") showLightboxAt(lightboxIndex - 1);
+    else if (ev.key === "ArrowRight") showLightboxAt(lightboxIndex + 1);
   });
 
   function renderAttachmentsList(list, opts) {
@@ -669,7 +748,9 @@
   /* ═══════════════ entries/ ═══════════════ */
   let activeTagFilter = null;
   let entryDraftAttachments = [];
+  let activeEntryId = null;  // wpis wybrany z bocznej listy (null → formularz)
   let editingEntryId = null; // wpis otwarty do edycji w miejscu
+  let editingAttachments = []; // robocza lista załączników edytowanego wpisu
 
   function refreshEntryFilename() {
     $("#entryFilename").textContent = fmtFile(Date.now());
@@ -680,6 +761,14 @@
     getList: () => entryDraftAttachments,
     setList: (l) => { entryDraftAttachments = l; },
     getTextarea: () => $("#entryBody"),
+  });
+
+  $("#newEntryBtn").addEventListener("click", () => {
+    activeEntryId = null;
+    editingEntryId = null;
+    editingAttachments = [];
+    renderEntries();
+    $("#entryBody").focus();
   });
 
   $("#entryForm").addEventListener("submit", (e) => {
@@ -723,67 +812,156 @@
       ? state.entries.filter((e) => e.tags.includes(activeTagFilter))
       : state.entries;
 
-    $("#entryList").innerHTML = list.length
-      ? list.map(entryCard).join("")
-      : `<div class="empty-state">${escapeHtml(tr("entries.empty", { tag: activeTagFilter ? tr("entries.empty.tag", { tag: activeTagFilter }) : tr("entries.empty.today") }))}</div>`;
+    // zaznaczony wpis mógł zniknąć (kasowanie, filtr) — wracamy wtedy do formularza
+    if (activeEntryId && !list.some((e) => e.id === activeEntryId)) activeEntryId = null;
+    if (editingEntryId && editingEntryId !== activeEntryId) {
+      editingEntryId = null;
+      editingAttachments = [];
+    }
 
-    $$("#entryList .entry-edit").forEach((btn) =>
+    renderEntryFiles(list);
+    renderEntryDetail();
+  }
+
+  /* ── boczny pasek: wpisy jako lista plików, pogrupowane po dniach ── */
+  function renderEntryFiles(list) {
+    if (!list.length) {
+      $("#entryList").innerHTML = `<div class="empty-state empty-slim">${escapeHtml(tr("entries.empty", { tag: activeTagFilter ? tr("entries.empty.tag", { tag: activeTagFilter }) : tr("entries.empty.today") }))}</div>`;
+      return;
+    }
+
+    let lastDay = null;
+    const rows = list.map((e) => {
+      const k = dayKey(e.ts);
+      const head = k === lastDay ? "" : `<div class="entry-file-day mono">${escapeHtml(fmtDayLabel(e.ts))}</div>`;
+      lastDay = k;
+      const title = e.body.split("\n").find((l) => l.trim()) || "";
+      const label = title.trim() || tr("entries.file.noText");
+      const mood = moodOfDay(k);
+      return `${head}<button type="button" class="entry-file ${e.id === activeEntryId ? "active" : ""}" data-id="${e.id}">
+        <span class="entry-file-time mono">${fmtTime(e.ts)}</span>
+        <span class="entry-file-name">${escapeHtml(label.slice(0, 80))}</span>
+        ${mood ? `<span class="mood-cell l${mood} entry-file-mood" aria-hidden="true"></span>` : ""}
+        ${e.attachments && e.attachments.length ? `<span class="entry-file-clip mono" aria-hidden="true">◍</span>` : ""}
+      </button>`;
+    });
+    $("#entryList").innerHTML = rows.join("");
+
+    $$("#entryList .entry-file").forEach((btn) =>
       btn.addEventListener("click", () => {
-        editingEntryId = btn.dataset.id;
+        activeEntryId = btn.dataset.id;
         renderEntries();
-        const ta = document.querySelector(`#entryList [data-item-id="${editingEntryId}"] .entry-edit-body`);
+      })
+    );
+  }
+
+  /* ── prawa kolumna: formularz albo wybrany wpis ── */
+  function renderEntryDetail() {
+    const entry = activeEntryId ? state.entries.find((e) => e.id === activeEntryId) : null;
+    $("#entryForm").hidden = !!entry;
+
+    if (!entry) {
+      $("#entryDetail").innerHTML = state.entries.length
+        ? `<div class="empty-state empty-hint">${escapeHtml(tr("entries.pickHint"))}</div>`
+        : "";
+      return;
+    }
+
+    $("#entryDetail").innerHTML = entryCard(entry);
+    bindEntryDetail(entry);
+  }
+
+  function bindEntryDetail(entry) {
+    const detail = $("#entryDetail");
+
+    const editBtn = detail.querySelector(".entry-edit");
+    if (editBtn) {
+      editBtn.addEventListener("click", () => {
+        ensureAttachments(entry);
+        editingEntryId = entry.id;
+        // pracujemy na kopii — anulowanie zostawia wpis nietknięty
+        editingAttachments = entry.attachments.map((a) => ({ ...a }));
+        renderEntryDetail();
+        const ta = detail.querySelector(".entry-edit-body");
         if (ta) {
           autoGrow(ta);
           ta.focus();
           ta.setSelectionRange(ta.value.length, ta.value.length);
         }
-      })
-    );
+      });
+    }
 
-    $$("#entryList .entry-edit-cancel").forEach((btn) =>
-      btn.addEventListener("click", () => {
+    const cancelBtn = detail.querySelector(".entry-edit-cancel");
+    if (cancelBtn) {
+      cancelBtn.addEventListener("click", () => {
         editingEntryId = null;
-        renderEntries();
-      })
-    );
+        editingAttachments = [];
+        renderEntryDetail();
+      });
+    }
 
-    $$("#entryList .entry-edit-form").forEach((form) => {
+    const form = detail.querySelector(".entry-edit-form");
+    if (form) {
       const ta = form.querySelector(".entry-edit-body");
       ta.addEventListener("input", () => autoGrow(ta));
+
+      // pełny pasek mediów w edycji: dodawanie zdjęć, nagrywanie, usuwanie —
+      // host powstaje na nowo przy każdym renderze karty
+      const media = setupMediaHost({
+        host: "entryEdit",
+        getList: () => editingAttachments,
+        setList: (l) => { editingAttachments = l; },
+        getTextarea: () => ta,
+      });
+      media.render();
+
       form.addEventListener("submit", (ev) => {
         ev.preventDefault();
-        const entry = state.entries.find((x) => x.id === form.dataset.id);
-        if (!entry) return;
         const body = ta.value.trim();
-        ensureAttachments(entry);
         // pusty wpis bez załączników nie ma sensu — nie pozwalamy się do niego cofnąć
-        if (!body && entry.attachments.length === 0) {
+        if (!body && editingAttachments.length === 0) {
           toast(tr("entries.edit.empty"));
+          return;
+        }
+        // trwa jeszcze wysyłka zdjęcia — zapis czekałby na ścieżkę, więc prosimy o chwilę
+        if (editingAttachments.some((a) => a.loading || a.transcribing)) {
+          toast(tr("entries.edit.busy"));
           return;
         }
         entry.body = body;
         entry.tags = (form.querySelector(".entry-edit-tags").value.match(/#[\p{L}\p{N}_-]+/gu) || [])
           .map((t) => t.toLowerCase());
+        entry.attachments = editingAttachments;
         if (saveState()) toast(tr("entries.edit.saved"));
         editingEntryId = null;
+        editingAttachments = [];
         renderEntries();
         renderCounts();
         renderDashboard();
       });
-    });
+    }
 
-    $$("#entryList .entry-del").forEach((btn) =>
-      btn.addEventListener("click", () => {
-        const entry = state.entries.find((e) => e.id === btn.dataset.id);
-        if (!entry) return;
+    const delBtn = detail.querySelector(".entry-del");
+    if (delBtn) {
+      delBtn.addEventListener("click", () => {
         const label = entry.body.split("\n")[0].slice(0, 40) || fmtFile(entry.ts);
         deleteWithUndo("entries", entry.id, label, () => {
+          activeEntryId = null;
           renderEntries();
           renderCounts();
         });
-      })
-    );
+      });
+    }
 
+    const backBtn = detail.querySelector(".entry-back");
+    if (backBtn) {
+      backBtn.addEventListener("click", () => {
+        activeEntryId = null;
+        editingEntryId = null;
+        editingAttachments = [];
+        renderEntries();
+      });
+    }
   }
 
   // nastrój z danego dnia — używany jako mały kontekst przy wpisie
@@ -800,18 +978,23 @@
 
   function entryEditCard(e) {
     ensureAttachments(e);
-    const attHtml = e.attachments.length
-      ? `<div class="media-attachments media-view">${renderAttachmentsList(e.attachments, { editable: false })}</div>`
-      : "";
     return `<article class="entry-card entry-card-editing" data-item-id="${e.id}">
       <form class="entry-edit-form" data-id="${e.id}">
         <div class="entry-meta">
           <span class="entry-hash">${hashOf(e.id)}</span>
           <span class="entry-file">${fmtFile(e.ts)}</span>
           <span class="entry-editing-flag mono">${escapeHtml(tr("entries.edit.flag"))}</span>
+          <button type="button" class="entry-back mono" title="${escapeAttr(tr("entries.back"))}">← ${escapeHtml(tr("entries.backLabel"))}</button>
         </div>
         <textarea class="entry-edit-body" rows="4" spellcheck="true" placeholder="${escapeAttr(tr("entries.ph.body"))}">${escapeHtml(e.body)}</textarea>
-        ${attHtml}
+        <div class="media-toolbar mono" data-host="entryEdit">
+          <button type="button" class="media-btn" data-act="photo-file"><span class="mb-ico">+</span> ${escapeHtml(tr("media.addPhoto"))}</button>
+          <button type="button" class="media-btn" data-act="photo-url"><span class="mb-ico">↗</span> ${escapeHtml(tr("media.fromUrl"))}</button>
+          <button type="button" class="media-btn media-rec" data-act="rec"><span class="mb-dot"></span> ${escapeHtml(tr("media.record"))}</button>
+          <span class="media-hint dim" data-hint></span>
+        </div>
+        <div class="media-attachments" id="entryEditAttachments"></div>
+        <input type="file" id="entryEditFileInput" accept="image/jpeg,image/png,image/webp" hidden>
         <div class="form-row entry-edit-row">
           <input type="text" class="entry-edit-tags mono" value="${escapeAttr(e.tags.join(" "))}" placeholder="${escapeAttr(tr("entries.ph.tags"))}">
           <button type="button" class="btn mono entry-edit-cancel">${escapeHtml(tr("entries.edit.cancel"))}</button>
@@ -839,6 +1022,7 @@
         <span class="entry-hash">${hashOf(e.id)}</span>
         <span class="entry-file">${fmtFile(e.ts)}</span>
         ${moodBadge}
+        <button class="entry-back mono" title="${escapeAttr(tr("entries.back"))}">← ${escapeHtml(tr("entries.backLabel"))}</button>
         <button class="entry-edit" data-id="${e.id}" title="${escapeAttr(tr("entries.edit.title"))}">edit</button>
         <button class="entry-del" data-id="${e.id}">rm</button>
       </div>
@@ -1718,7 +1902,7 @@
   function openItem(kind, id) {
     const view = KIND_VIEW[kind];
     if (kind === "note") activeNoteId = id;
-    if (kind === "entry") activeTagFilter = null;
+    if (kind === "entry") { activeTagFilter = null; activeEntryId = id; }
     if (kind === "task") {
       const t = state.tasks.find((x) => x.id === id);
       if (t && t.status === "done") doneOpen = true; // rozwiń sekcję, żeby dało się doskrolować

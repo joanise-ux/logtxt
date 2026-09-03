@@ -135,6 +135,13 @@
       /* ── entries ── */
       "entries.sub": "// twoje wpisy — każdy jak osobny plik",
       "entries.newEntry": "nowy wpis →",
+      "entries.newBtn": "+ nowy wpis",
+      "entries.back": "Wróć do formularza nowego wpisu",
+      "entries.backLabel": "lista",
+      "entries.pickHint": "// wybierz wpis z listy obok albo zacznij nowy",
+      "entries.file.noText": "// bez tekstu",
+      "entries.day.today": "dziś",
+      "entries.day.yesterday": "wczoraj",
       "entries.ph.body": "$ napisz coś...",
       "entries.ph.tags": "#refleksja #praca #pomysł",
       "entries.submit": "git commit",
@@ -148,6 +155,7 @@
       "entries.edit.cancel": "anuluj",
       "entries.edit.saved": "Zapisano ✓ wpis zaktualizowany",
       "entries.edit.empty": "// wpis nie może być pusty",
+      "entries.edit.busy": "// poczekaj — trwa wysyłka załącznika",
 
       /* ── mood ── */
       "mood.sub": "// jak się dziś czujesz? zapisz stan procesu",
@@ -234,6 +242,11 @@
       "media.err.notImage": "// błąd: to nie jest obraz",
       "media.err.generic": "// błąd: {msg}",
       "media.done": "// gotowe",
+      "media.open": "Otwórz zdjęcie na cały ekran",
+      "media.close": "Zamknij podgląd",
+      "media.prev": "Poprzednie zdjęcie",
+      "media.next": "Następne zdjęcie",
+      "media.aria.viewer": "Podgląd zdjęcia",
 
       /* ── import starych danych ── */
       "import.prompt": "Znaleziono lokalny dziennik z tej przeglądarki: {total} wpisów ({entries} entries, {moods} mood, {notes} notatek, {tasks} zadań).\n\nPrzenieść je na konto? Nagrania głosowe nie zostaną przeniesione.",
@@ -361,6 +374,13 @@
       /* ── entries ── */
       "entries.sub": "// your entries — each one its own file",
       "entries.newEntry": "new entry →",
+      "entries.newBtn": "+ new entry",
+      "entries.back": "Back to the new entry form",
+      "entries.backLabel": "list",
+      "entries.pickHint": "// pick an entry from the list, or start a new one",
+      "entries.file.noText": "// no text",
+      "entries.day.today": "today",
+      "entries.day.yesterday": "yesterday",
       "entries.ph.body": "$ write something...",
       "entries.ph.tags": "#reflection #work #idea",
       "entries.submit": "git commit",
@@ -374,6 +394,7 @@
       "entries.edit.cancel": "cancel",
       "entries.edit.saved": "Saved ✓ entry updated",
       "entries.edit.empty": "// an entry can't be empty",
+      "entries.edit.busy": "// hold on — an attachment is still uploading",
 
       /* ── mood ── */
       "mood.sub": "// how do you feel today? log the process state",
@@ -460,6 +481,11 @@
       "media.err.notImage": "// error: that is not an image",
       "media.err.generic": "// error: {msg}",
       "media.done": "// done",
+      "media.open": "Open the photo full screen",
+      "media.close": "Close the viewer",
+      "media.prev": "Previous photo",
+      "media.next": "Next photo",
+      "media.aria.viewer": "Photo viewer",
 
       /* ── import starych danych ── */
       "import.prompt": "Found a local journal from this browser: {total} records ({entries} entries, {moods} mood, {notes} notes, {tasks} tasks).\n\nMove them to your account? Voice recordings will not be moved.",
