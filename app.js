@@ -263,10 +263,11 @@
 
   function showView(name) {
     activeView = name;
+    if (name !== "entries") editingEntryId = null; // edycja nie przeżywa wyjścia z sekcji
     $$(".nav-item").forEach((b) => b.classList.toggle("active", b.dataset.view === name));
     $$(".view").forEach((v) => v.classList.toggle("active", v.dataset.view === name));
     const moreBtn = document.getElementById("bottomNavMore");
-    if (moreBtn) moreBtn.classList.toggle("active", name === "mood" || name === "voice");
+    if (moreBtn) moreBtn.classList.toggle("active", name === "voice");
     $("#crumbView").textContent = name === "dashboard" ? "dashboard"
       : name === "mood" ? "mood.log"
       : name === "tasks" ? "tasks.todo"
@@ -426,6 +427,13 @@
     return "";
   }
 
+  // klik w zdjęcie rozwija panel do pełnego kadru — działa w edytorze,
+  // w karcie wpisu i w podglądzie notatki, stąd jedna delegacja na dokument
+  document.addEventListener("click", (ev) => {
+    const img = ev.target.closest(".att-image img");
+    if (img) img.closest(".att-image").classList.toggle("zoomed");
+  });
+
   function renderAttachmentsList(list, opts) {
     return (list || []).map((a) => renderAttachment(a, opts)).join("");
   }
@@ -465,9 +473,6 @@
           setList(list);
           onChange && onChange();
         })
-      );
-      attachEl.querySelectorAll(".att-image img").forEach((img) =>
-        img.addEventListener("click", () => img.classList.toggle("zoomed"))
       );
     }
 
@@ -664,6 +669,7 @@
   /* ═══════════════ entries/ ═══════════════ */
   let activeTagFilter = null;
   let entryDraftAttachments = [];
+  let editingEntryId = null; // wpis otwarty do edycji w miejscu
 
   function refreshEntryFilename() {
     $("#entryFilename").textContent = fmtFile(Date.now());
@@ -721,6 +727,51 @@
       ? list.map(entryCard).join("")
       : `<div class="empty-state">${escapeHtml(tr("entries.empty", { tag: activeTagFilter ? tr("entries.empty.tag", { tag: activeTagFilter }) : tr("entries.empty.today") }))}</div>`;
 
+    $$("#entryList .entry-edit").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        editingEntryId = btn.dataset.id;
+        renderEntries();
+        const ta = document.querySelector(`#entryList [data-item-id="${editingEntryId}"] .entry-edit-body`);
+        if (ta) {
+          autoGrow(ta);
+          ta.focus();
+          ta.setSelectionRange(ta.value.length, ta.value.length);
+        }
+      })
+    );
+
+    $$("#entryList .entry-edit-cancel").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        editingEntryId = null;
+        renderEntries();
+      })
+    );
+
+    $$("#entryList .entry-edit-form").forEach((form) => {
+      const ta = form.querySelector(".entry-edit-body");
+      ta.addEventListener("input", () => autoGrow(ta));
+      form.addEventListener("submit", (ev) => {
+        ev.preventDefault();
+        const entry = state.entries.find((x) => x.id === form.dataset.id);
+        if (!entry) return;
+        const body = ta.value.trim();
+        ensureAttachments(entry);
+        // pusty wpis bez załączników nie ma sensu — nie pozwalamy się do niego cofnąć
+        if (!body && entry.attachments.length === 0) {
+          toast(tr("entries.edit.empty"));
+          return;
+        }
+        entry.body = body;
+        entry.tags = (form.querySelector(".entry-edit-tags").value.match(/#[\p{L}\p{N}_-]+/gu) || [])
+          .map((t) => t.toLowerCase());
+        if (saveState()) toast(tr("entries.edit.saved"));
+        editingEntryId = null;
+        renderEntries();
+        renderCounts();
+        renderDashboard();
+      });
+    });
+
     $$("#entryList .entry-del").forEach((btn) =>
       btn.addEventListener("click", () => {
         const entry = state.entries.find((e) => e.id === btn.dataset.id);
@@ -733,13 +784,6 @@
       })
     );
 
-    // klik na badge nastroju otwiera mood.log
-    $$("#entryList [data-mood-jump]").forEach((el) =>
-      el.addEventListener("click", (ev) => {
-        ev.stopPropagation();
-        showView("mood");
-      })
-    );
   }
 
   // nastrój z danego dnia — używany jako mały kontekst przy wpisie
@@ -748,22 +792,54 @@
     return m ? m.level : null;
   }
 
+  // textarea w edycji rośnie razem z treścią — bez wewnętrznego scrolla
+  function autoGrow(ta) {
+    ta.style.height = "auto";
+    ta.style.height = ta.scrollHeight + "px";
+  }
+
+  function entryEditCard(e) {
+    ensureAttachments(e);
+    const attHtml = e.attachments.length
+      ? `<div class="media-attachments media-view">${renderAttachmentsList(e.attachments, { editable: false })}</div>`
+      : "";
+    return `<article class="entry-card entry-card-editing" data-item-id="${e.id}">
+      <form class="entry-edit-form" data-id="${e.id}">
+        <div class="entry-meta">
+          <span class="entry-hash">${hashOf(e.id)}</span>
+          <span class="entry-file">${fmtFile(e.ts)}</span>
+          <span class="entry-editing-flag mono">${escapeHtml(tr("entries.edit.flag"))}</span>
+        </div>
+        <textarea class="entry-edit-body" rows="4" spellcheck="true" placeholder="${escapeAttr(tr("entries.ph.body"))}">${escapeHtml(e.body)}</textarea>
+        ${attHtml}
+        <div class="form-row entry-edit-row">
+          <input type="text" class="entry-edit-tags mono" value="${escapeAttr(e.tags.join(" "))}" placeholder="${escapeAttr(tr("entries.ph.tags"))}">
+          <button type="button" class="btn mono entry-edit-cancel">${escapeHtml(tr("entries.edit.cancel"))}</button>
+          <button type="submit" class="btn btn-primary mono">${escapeHtml(tr("entries.edit.save"))}</button>
+        </div>
+      </form>
+    </article>`;
+  }
+
   function entryCard(e) {
+    if (e.id === editingEntryId) return entryEditCard(e);
     ensureAttachments(e);
     const attHtml = e.attachments.length
       ? `<div class="media-attachments media-view">${renderAttachmentsList(e.attachments, { editable: false })}</div>`
       : "";
     const dayMood = moodOfDay(dayKey(e.ts));
+    // czysta informacja — do mood.log wchodzi się wyłącznie z dashboardu
     const moodBadge = dayMood
-      ? `<button type="button" class="entry-mood mono" data-mood-jump title="${escapeAttr(tr("entries.moodJump", { level: dayMood }))}">
+      ? `<span class="entry-mood mono" title="${escapeAttr(tr("entries.moodBadge", { level: dayMood }))}">
           <span class="mood-cell l${dayMood}"></span><span class="em-lvl">${dayMood}/5</span>
-        </button>`
+        </span>`
       : "";
     return `<article class="entry-card" data-item-id="${e.id}">
       <div class="entry-meta">
         <span class="entry-hash">${hashOf(e.id)}</span>
         <span class="entry-file">${fmtFile(e.ts)}</span>
         ${moodBadge}
+        <button class="entry-edit" data-id="${e.id}" title="${escapeAttr(tr("entries.edit.title"))}">edit</button>
         <button class="entry-del" data-id="${e.id}">rm</button>
       </div>
       ${e.body ? `<div class="entry-body">${escapeHtml(e.body)}</div>` : ""}
@@ -797,29 +873,56 @@
     })
   );
 
+  /* jeden mood dziennie — jeśli dziś jest już wpis, nadpisujemy go zachowując id,
+     ale przenosimy na górę listy jako najnowszy. Wołane z formularza na
+     podstronie i z kafelka na dashboardzie. */
+  function logMood(level, note) {
+    const todayK = dayKey(Date.now());
+    const existingIdx = state.moods.findIndex((m) => dayKey(m.ts) === todayK);
+    const existing = existingIdx >= 0 ? state.moods[existingIdx] : null;
+    if (existing) state.moods.splice(existingIdx, 1);
+    state.moods.unshift({
+      id: existing ? existing.id : uid(),
+      ts: Date.now(),
+      level,
+      // zaznaczenie z dashboardu nie kasuje kontekstu dopisanego na podstronie
+      note: note === undefined ? (existing ? existing.note : "") : note,
+    });
+    const saved = saveState();
+    if (saved) toast(tr(existing ? "mood.updated" : "mood.saved"));
+    renderMood();
+    renderDashboard();
+    return saved;
+  }
+
   $("#moodForm").addEventListener("submit", (e) => {
     e.preventDefault();
     if (!selectedMood) return;
-    // jeden mood dziennie — jeśli dziś jest już wpis, nadpisujemy go zachowując id,
-    // ale przenosimy na górę listy jako najnowszy
-    const todayK = dayKey(Date.now());
-    const existingIdx = state.moods.findIndex((m) => dayKey(m.ts) === todayK);
-    const id = existingIdx >= 0 ? state.moods[existingIdx].id : uid();
-    if (existingIdx >= 0) state.moods.splice(existingIdx, 1);
-    const overwritten = existingIdx >= 0;
-    state.moods.unshift({
-      id, ts: Date.now(), level: selectedMood,
-      note: $("#moodNote").value.trim(),
-    });
-    if (saveState()) {
+    if (logMood(selectedMood, $("#moodNote").value.trim())) {
       $("#moodNote").value = "";
       selectedMood = null;
       $$("#moodScale .mood-btn").forEach((b) => b.classList.remove("selected"));
       $("#moodSubmit").disabled = true;
-      toast(tr(overwritten ? "mood.updated" : "mood.saved"));
     }
-    renderMood();
   });
+
+  /* ── skala na dashboardzie: samo zaznaczenie, zapis idzie od razu ── */
+  $$("#dashMoodScale .mood-btn").forEach((btn) =>
+    btn.addEventListener("click", () => logMood(Number(btn.dataset.level)))
+  );
+
+  $("#dashMoodOpen").addEventListener("click", () => showView("mood"));
+
+  function renderDashMood() {
+    const todayK = dayKey(Date.now());
+    const today = state.moods.find((m) => dayKey(m.ts) === todayK);
+    $$("#dashMoodScale .mood-btn").forEach((b) =>
+      b.classList.toggle("selected", !!today && Number(b.dataset.level) === today.level)
+    );
+    $("#dashMoodStatus").textContent = today
+      ? tr("dash.mood.today", { level: today.level })
+      : tr("dash.mood.none");
+  }
 
   /* dopasowuje rozmiar kafelka moodu do dostępnej wysokości i szerokości —
      im więcej dni (28/45/90), tym mniejsze kafelki, wszystko musi się zmieścić
@@ -1636,9 +1739,17 @@
   $$(".qa-btn").forEach((btn) =>
     btn.addEventListener("click", () => {
       const qa = btn.dataset.qa;
+      // nastrój zaznacza się na miejscu, na dashboardzie — nie przeskakujemy do sekcji
+      if (qa === "mood") {
+        const scale = $("#dashMoodScale");
+        if (scale) {
+          scale.closest(".dash-card").scrollIntoView({ behavior: "smooth", block: "center" });
+          scale.querySelector(".mood-btn").focus();
+        }
+        return;
+      }
       const focusMap = {
         entry: ["entries", "#entryBody"],
-        mood: ["mood", "#moodScale .mood-btn"],
         task: ["tasks", "#taskText"],
         voice: ["voice", "#recBtn"],
       };
@@ -1778,6 +1889,9 @@
     $$("#dashTiles .tile").forEach((t) =>
       t.addEventListener("click", () => showView(t.dataset.tile))
     );
+
+    /* ── nastrój dnia ── */
+    renderDashMood();
 
     /* ── pinned/ ── */
     renderPinnedPanel();

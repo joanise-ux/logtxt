@@ -8,9 +8,9 @@
 
 | Sekcja       | Co robi |
 |--------------|---------|
-| `~/dashboard` | Układ kafelkowy (bento): powitanie, szybkie akcje, motto dnia, log aktywności w stylu `git log`, przypięte notatki, otwarte zadania i skróty do sekcji — ze statystykami (commits_today, day_streak) |
-| `entries/`   | Wpisy dziennika — każdy jak osobny plik z datownikiem (`2026-07-11_23-42.md`) i tagami (`#refleksja`, `#praca`) |
-| `mood.log`   | Szybki tracker nastroju (1–5) wizualizowany jak GitHub contribution graph, z polem na kontekst |
+| `~/dashboard` | Układ kafelkowy (bento): powitanie, szybkie akcje, zaznaczanie nastroju dnia, motto dnia, log aktywności w stylu `git log`, przypięte notatki, otwarte zadania i skróty do sekcji — ze statystykami (commits_today, day_streak) |
+| `entries/`   | Wpisy dziennika — każdy jak osobny plik z datownikiem (`2026-07-11_23-42.md`) i tagami (`#refleksja`, `#praca`), z edycją zapisanego wpisu w miejscu (`git commit --amend`) |
+| `mood.log`   | Szybki tracker nastroju (1–5) wizualizowany jak GitHub contribution graph, z polem na kontekst. Nastrój dnia zaznacza się na dashboardzie, a sama sekcja jest dostępna wyłącznie stamtąd — nie ma jej w nawigacji bocznej |
 | `notes/`     | Luźne notatki markdown-friendly z podglądem `edit / preview` jak w IDE |
 | `tasks.todo` | Checklisty `- [ ] / - [~] / - [x]` ze statusami `pending / in_progress / done`, grupowane w sprinty |
 | `voice/`     | Notatki głosowe z oscyloskopem na żywo, ASCII-waveform (`▁▂▅▇█`) i automatyczną transkrypcją (Groq Whisper po stronie serwera — patrz niżej) |
