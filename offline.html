@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#0d0f12" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#fff7e6" media="(prefers-color-scheme: light)">
+  <title>log.txt — offline</title>
+  <style>
+    :root {
+      --bg: #0d0f12;
+      --fg: #e4e8ef;
+      --dim: #8b93a3;
+      --accent: #4ade80;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #fff7e6;
+        --fg: #2d3a47;
+        --dim: #5c6b7a;
+        --accent: #b46a72;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem calc(2rem + env(safe-area-inset-right)) calc(2rem + env(safe-area-inset-bottom)) calc(2rem + env(safe-area-inset-left));
+      padding-top: calc(2rem + env(safe-area-inset-top));
+      background: var(--bg);
+      color: var(--fg);
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    main { max-width: 34ch; width: 100%; }
+    h1 { font-size: 14px; font-weight: 600; margin: 0 0 1.5rem; }
+    p { margin: 0 0 .5rem; color: var(--dim); }
+    .prompt { color: var(--dim); }
+    .err { color: var(--accent); }
+    button {
+      margin-top: 1.75rem;
+      padding: .6rem 1rem;
+      font: inherit;
+      color: var(--bg);
+      background: var(--accent);
+      border: 0;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .cursor {
+      display: inline-block;
+      width: .6ch;
+      height: 1em;
+      background: var(--accent);
+      vertical-align: text-bottom;
+      animation: blink 1.1s steps(2, start) infinite;
+    }
+    @keyframes blink { to { visibility: hidden; } }
+    @media (prefers-reduced-motion: reduce) { .cursor { animation: none; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1><span class="prompt" aria-hidden="true">$</span> log.txt --open</h1>
+    <p><span class="err">error:</span> brak połączenia z siecią</p>
+    <p>Twoje wpisy są bezpieczne. Wrócą, gdy wróci internet.</p>
+    <p><span class="prompt" aria-hidden="true">$</span> <span class="cursor" aria-hidden="true"></span></p>
+    <button type="button" onclick="location.reload()">spróbuj ponownie</button>
+  </main>
+  <script>
+    // gdy sieć wróci, wracamy do apki bez klikania
+    window.addEventListener("online", function () { location.reload(); });
+  </script>
+</body>
+</html>
