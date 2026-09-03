@@ -349,90 +349,121 @@
 
         <!-- ═══ entries/ ═══ -->
         <section class="view" data-view="entries">
-          <div class="view-head">
-            <h1 class="mono">entries/</h1>
-            <p class="view-sub" data-i18n="entries.sub">// twoje wpisy — każdy jak osobny plik</p>
+          <div class="view-grid">
+
+            <div class="view-hero">
+              <div class="view-hero-text">
+                <h1 class="mono">entries/</h1>
+                <p class="view-sub" data-i18n="entries.sub">// twoje wpisy — każdy jak osobny plik</p>
+              </div>
+              <span class="view-hero-mark mono" aria-hidden="true">▍</span>
+            </div>
+
+            <div class="view-col view-col-main">
+              <form class="entry-form panel" id="entryForm">
+                <div class="panel-title mono">
+                  <span class="dim">$</span> <span data-i18n="entries.newEntry">nowy wpis →</span> <span class="accent" id="entryFilename"></span>
+                </div>
+                <textarea id="entryBody" rows="5" placeholder="$ napisz coś..." data-i18n-ph="entries.ph.body" spellcheck="true"></textarea>
+                <div class="media-toolbar mono" data-host="entry">
+                  <button type="button" class="media-btn" data-act="photo-file"><span class="mb-ico">+</span> <span data-i18n="media.addPhoto">dodaj zdjęcie</span></button>
+                  <button type="button" class="media-btn" data-act="photo-url"><span class="mb-ico">↗</span> <span data-i18n="media.fromUrl">z URL</span></button>
+                  <button type="button" class="media-btn media-rec" data-act="rec"><span class="mb-dot"></span> <span data-i18n="media.record">nagraj</span></button>
+                  <span class="media-hint dim" data-hint></span>
+                </div>
+                <div class="media-attachments" id="entryAttachments"></div>
+                <div class="form-row">
+                  <input type="text" id="entryTags" class="mono" placeholder="#refleksja #praca #pomysł" data-i18n-ph="entries.ph.tags">
+                  <button type="submit" class="btn btn-primary mono">git commit</button>
+                </div>
+                <input type="file" id="entryFileInput" accept="image/jpeg,image/png,image/webp" hidden>
+              </form>
+
+              <div class="entry-list" id="entryList"></div>
+            </div>
+
+            <div class="view-col view-col-side">
+              <div class="dash-card tags-card">
+                <div class="dash-card-label mono"><span class="dim">$</span> grep --tag</div>
+                <div class="tag-filter mono" id="tagFilter"></div>
+              </div>
+            </div>
+
           </div>
-
-          <form class="entry-form panel" id="entryForm">
-            <div class="panel-title mono">
-              <span class="dim">$</span> <span data-i18n="entries.newEntry">nowy wpis →</span> <span class="accent" id="entryFilename"></span>
-            </div>
-            <textarea id="entryBody" rows="5" placeholder="$ napisz coś..." data-i18n-ph="entries.ph.body" spellcheck="true"></textarea>
-            <div class="media-toolbar mono" data-host="entry">
-              <button type="button" class="media-btn" data-act="photo-file"><span class="mb-ico">+</span> <span data-i18n="media.addPhoto">dodaj zdjęcie</span></button>
-              <button type="button" class="media-btn" data-act="photo-url"><span class="mb-ico">↗</span> <span data-i18n="media.fromUrl">z URL</span></button>
-              <button type="button" class="media-btn media-rec" data-act="rec"><span class="mb-dot"></span> <span data-i18n="media.record">nagraj</span></button>
-              <span class="media-hint dim" data-hint></span>
-            </div>
-            <div class="media-attachments" id="entryAttachments"></div>
-            <div class="form-row">
-              <input type="text" id="entryTags" class="mono" placeholder="#refleksja #praca #pomysł" data-i18n-ph="entries.ph.tags">
-              <button type="submit" class="btn btn-primary mono">git commit</button>
-            </div>
-            <input type="file" id="entryFileInput" accept="image/jpeg,image/png,image/webp" hidden>
-          </form>
-
-          <div class="tag-filter mono" id="tagFilter"></div>
-          <div class="entry-list" id="entryList"></div>
         </section>
 
         <!-- ═══ mood.log ═══ -->
         <section class="view" data-view="mood">
-          <div class="view-head">
-            <h1 class="mono">mood.log</h1>
-            <p class="view-sub" data-i18n="mood.sub">// jak się dziś czujesz? zapisz stan procesu</p>
-          </div>
+          <div class="view-grid">
 
-          <form class="panel mood-form" id="moodForm">
-            <div class="panel-title mono"><span class="dim">$</span> mood --set</div>
-            <div class="mood-scale" id="moodScale" role="radiogroup" data-i18n-aria="mood.aria.scale" aria-label="Poziom nastroju">
-              <button type="button" class="mood-btn" data-level="1" data-i18n-aria="mood.level.1" aria-label="Bardzo źle"><span class="mood-cell l1"></span><span class="mono">1</span></button>
-              <button type="button" class="mood-btn" data-level="2" data-i18n-aria="mood.level.2" aria-label="Słabo"><span class="mood-cell l2"></span><span class="mono">2</span></button>
-              <button type="button" class="mood-btn" data-level="3" data-i18n-aria="mood.level.3" aria-label="Neutralnie"><span class="mood-cell l3"></span><span class="mono">3</span></button>
-              <button type="button" class="mood-btn" data-level="4" data-i18n-aria="mood.level.4" aria-label="Dobrze"><span class="mood-cell l4"></span><span class="mono">4</span></button>
-              <button type="button" class="mood-btn" data-level="5" data-i18n-aria="mood.level.5" aria-label="Świetnie"><span class="mood-cell l5"></span><span class="mono">5</span></button>
-            </div>
-            <div class="form-row">
-              <input type="text" id="moodNote" placeholder="// krótki kontekst, opcjonalnie" data-i18n-ph="mood.ph.note">
-              <button type="submit" class="btn btn-primary mono" disabled id="moodSubmit">log mood</button>
-            </div>
-          </form>
-
-          <div class="panel">
-            <div class="panel-title mono">
-              <span class="dim">$</span> mood --graph <span class="dim" id="moodRangeLabel">// ostatnie 28 dni</span>
-              <span class="mood-range" id="moodRange" role="group" data-i18n-aria="mood.aria.range" aria-label="Zakres grafu">
-                <button type="button" class="range-btn" data-days="28">28d</button>
-                <button type="button" class="range-btn" data-days="45">45d</button>
-                <button type="button" class="range-btn" data-days="90">90d</button>
-              </span>
-            </div>
-            <div class="mood-graph-wrap">
-              <div class="mood-dow mono" aria-hidden="true">
-                <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            <div class="view-hero">
+              <div class="view-hero-text">
+                <h1 class="mono">mood.log</h1>
+                <p class="view-sub" data-i18n="mood.sub">// jak się dziś czujesz? zapisz stan procesu</p>
               </div>
-              <div class="mood-graph" id="moodGraph"></div>
+              <span class="view-hero-mark mono" aria-hidden="true">▍</span>
             </div>
-            <div class="mood-legend mono">
-              <span class="dim" data-i18n="mood.worse">gorzej</span>
-              <span class="mood-cell l1"></span><span class="mood-cell l2"></span><span class="mood-cell l3"></span><span class="mood-cell l4"></span><span class="mood-cell l5"></span>
-              <span class="dim" data-i18n="mood.better">lepiej</span>
-            </div>
-          </div>
 
-          <div class="entry-list" id="moodList"></div>
+            <div class="view-col view-col-side">
+              <form class="panel mood-form" id="moodForm">
+                <div class="panel-title mono"><span class="dim">$</span> mood --set</div>
+                <div class="mood-scale" id="moodScale" role="radiogroup" data-i18n-aria="mood.aria.scale" aria-label="Poziom nastroju">
+                  <button type="button" class="mood-btn" data-level="1" data-i18n-aria="mood.level.1" aria-label="Bardzo źle"><span class="mood-cell l1"></span><span class="mono">1</span></button>
+                  <button type="button" class="mood-btn" data-level="2" data-i18n-aria="mood.level.2" aria-label="Słabo"><span class="mood-cell l2"></span><span class="mono">2</span></button>
+                  <button type="button" class="mood-btn" data-level="3" data-i18n-aria="mood.level.3" aria-label="Neutralnie"><span class="mood-cell l3"></span><span class="mono">3</span></button>
+                  <button type="button" class="mood-btn" data-level="4" data-i18n-aria="mood.level.4" aria-label="Dobrze"><span class="mood-cell l4"></span><span class="mono">4</span></button>
+                  <button type="button" class="mood-btn" data-level="5" data-i18n-aria="mood.level.5" aria-label="Świetnie"><span class="mood-cell l5"></span><span class="mono">5</span></button>
+                </div>
+                <div class="form-row">
+                  <input type="text" id="moodNote" placeholder="// krótki kontekst, opcjonalnie" data-i18n-ph="mood.ph.note">
+                  <button type="submit" class="btn btn-primary mono" disabled id="moodSubmit">log mood</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="view-col view-col-main">
+              <div class="panel mood-graph-panel">
+                <div class="panel-title mono">
+                  <span class="dim">$</span> mood --graph <span class="dim" id="moodRangeLabel">// ostatnie 28 dni</span>
+                  <span class="mood-range" id="moodRange" role="group" data-i18n-aria="mood.aria.range" aria-label="Zakres grafu">
+                    <button type="button" class="range-btn" data-days="28">28d</button>
+                    <button type="button" class="range-btn" data-days="45">45d</button>
+                    <button type="button" class="range-btn" data-days="90">90d</button>
+                  </span>
+                </div>
+                <div class="mood-graph-wrap">
+                  <div class="mood-dow mono" aria-hidden="true">
+                    <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                  </div>
+                  <div class="mood-graph" id="moodGraph"></div>
+                </div>
+                <div class="mood-legend mono">
+                  <span class="dim" data-i18n="mood.worse">gorzej</span>
+                  <span class="mood-cell l1"></span><span class="mood-cell l2"></span><span class="mood-cell l3"></span><span class="mood-cell l4"></span><span class="mood-cell l5"></span>
+                  <span class="dim" data-i18n="mood.better">lepiej</span>
+                </div>
+              </div>
+
+              <div class="entry-list" id="moodList"></div>
+            </div>
+
+          </div>
         </section>
 
         <!-- ═══ notes/ ═══ -->
         <section class="view" data-view="notes">
-          <div class="view-head">
-            <h1 class="mono">notes/</h1>
-            <p class="view-sub" data-i18n="notes.sub">// luźne notatki, markdown-friendly</p>
-          </div>
+          <div class="view-grid view-grid-notes">
 
-          <div class="notes-layout">
-            <div class="notes-list-col">
+            <div class="view-hero">
+              <div class="view-hero-text">
+                <h1 class="mono">notes/</h1>
+                <p class="view-sub" data-i18n="notes.sub">// luźne notatki, markdown-friendly</p>
+              </div>
+              <span class="view-hero-mark mono" aria-hidden="true">▍</span>
+            </div>
+
+            <div class="dash-card notes-list-col">
+              <div class="dash-card-label mono"><span class="dim">$</span> ls notes/</div>
               <button class="btn btn-primary mono btn-block" id="newNoteBtn" data-i18n="notes.new">+ touch nowa.md</button>
               <div class="note-files" id="noteFiles"></div>
             </div>
@@ -473,52 +504,74 @@
               </div>
               <input type="file" id="noteFileInput" accept="image/jpeg,image/png,image/webp" hidden>
             </div>
+
           </div>
         </section>
 
         <!-- ═══ tasks.todo ═══ -->
         <section class="view" data-view="tasks">
-          <div class="view-head">
-            <h1 class="mono">tasks.todo</h1>
-            <p class="view-sub" data-i18n="tasks.sub">// zadania posegregowane wg statusu: in_progress → pending → done</p>
-          </div>
+          <div class="view-grid">
 
-          <form class="panel" id="taskForm">
-            <div class="panel-title mono"><span class="dim">$</span> task add</div>
-            <div class="form-row">
-              <span class="mono dim task-prefix">- [ ]</span>
-              <input type="text" id="taskText" placeholder="$ nowe zadanie..." data-i18n-ph="tasks.ph.text">
-              <input type="text" id="taskSprint" class="mono sprint-input" placeholder="sprint" data-i18n-ph="tasks.ph.sprint" list="sprintList">
-              <datalist id="sprintList"></datalist>
-              <button type="submit" class="btn btn-primary mono">add</button>
+            <div class="view-hero">
+              <div class="view-hero-text">
+                <h1 class="mono">tasks.todo</h1>
+                <p class="view-sub" data-i18n="tasks.sub">// zadania posegregowane wg statusu: in_progress → pending → done</p>
+              </div>
+              <span class="view-hero-mark mono" aria-hidden="true">▍</span>
             </div>
-          </form>
 
-          <div id="statusGroups"></div>
+            <div class="view-col view-col-side">
+              <form class="panel task-form" id="taskForm">
+                <div class="panel-title mono"><span class="dim">$</span> task add</div>
+                <div class="form-row">
+                  <span class="mono dim task-prefix">- [ ]</span>
+                  <input type="text" id="taskText" placeholder="$ nowe zadanie..." data-i18n-ph="tasks.ph.text">
+                  <input type="text" id="taskSprint" class="mono sprint-input" placeholder="sprint" data-i18n-ph="tasks.ph.sprint" list="sprintList">
+                  <datalist id="sprintList"></datalist>
+                  <button type="submit" class="btn btn-primary mono">add</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="view-col view-col-main">
+              <div id="statusGroups"></div>
+            </div>
+
+          </div>
         </section>
 
         <!-- ═══ voice/ ═══ -->
         <section class="view" data-view="voice">
-          <div class="view-head">
-            <h1 class="mono">voice/</h1>
-            <p class="view-sub" data-i18n="voice.sub">// notatki głosowe — nagraj i wróć do nich później</p>
-          </div>
+          <div class="view-grid">
 
-          <div class="panel voice-recorder">
-            <div class="panel-title mono"><span class="dim">$</span> rec --mic <span id="recStatus" class="dim" data-i18n="voice.ready">// gotowy</span></div>
-            <canvas id="waveCanvas" class="wave-canvas" height="80"></canvas>
-            <div class="form-row voice-controls">
-              <button type="button" class="btn btn-primary mono" id="recBtn">
-                <span class="rec-dot" aria-hidden="true"></span> record
-              </button>
-              <span class="mono rec-timer" id="recTimer">00:00</span>
-              <span class="flex-spacer"></span>
-              <span class="mono dim" id="transcriptHint"></span>
+            <div class="view-hero">
+              <div class="view-hero-text">
+                <h1 class="mono">voice/</h1>
+                <p class="view-sub" data-i18n="voice.sub">// notatki głosowe — nagraj i wróć do nich później</p>
+              </div>
+              <span class="view-hero-mark mono" aria-hidden="true">▍</span>
             </div>
+
+            <div class="view-col view-col-side">
+              <div class="panel voice-recorder">
+                <div class="panel-title mono"><span class="dim">$</span> rec --mic <span id="recStatus" class="dim" data-i18n="voice.ready">// gotowy</span></div>
+                <canvas id="waveCanvas" class="wave-canvas" height="80"></canvas>
+                <div class="form-row voice-controls">
+                  <button type="button" class="btn btn-primary mono" id="recBtn">
+                    <span class="rec-dot" aria-hidden="true"></span> record
+                  </button>
+                  <span class="mono rec-timer" id="recTimer">00:00</span>
+                  <span class="flex-spacer"></span>
+                  <span class="mono dim" id="transcriptHint"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="view-col view-col-main">
+              <div class="entry-list" id="voiceList"></div>
+            </div>
+
           </div>
-
-
-          <div class="entry-list" id="voiceList"></div>
         </section>
 
       </div>

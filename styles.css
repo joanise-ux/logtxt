@@ -225,16 +225,13 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 /* ── views ── */
 .views { flex: 1; overflow-y: auto; padding: 30px 28px 60px; }
 
-.view { display: none; max-width: 780px; margin: 0 auto; }
+.view { display: none; max-width: 1180px; margin: 0 auto; }
 .view.active { display: block; animation: viewIn 0.32s var(--ease); }
-.view-dash { max-width: 1180px; }
 @keyframes viewIn {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.view-head { margin-bottom: 24px; }
-.view-head h1 { font-size: 21px; font-weight: 600; letter-spacing: -0.01em; }
 .view-sub { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-faint); margin-top: 4px; }
 
 /* ═══ komponenty ═══ */
@@ -427,12 +424,16 @@ textarea:focus, input:focus {
 .dash-hello, .dash-actions { align-self: stretch; }
 
 /* „ładowanie sesji" — karty wchodzą kaskadą */
-.view[data-view="dashboard"].active .dash-grid > * { animation: viewIn 0.4s var(--ease) backwards; }
-.view[data-view="dashboard"].active .dash-grid > *:nth-child(2) { animation-delay: 0.07s; }
-.view[data-view="dashboard"].active .dash-grid > *:nth-child(3) { animation-delay: 0.14s; }
-.view[data-view="dashboard"].active .dash-grid > *:nth-child(4) { animation-delay: 0.21s; }
+.view.active .dash-grid > *,
+.view.active .view-grid > * { animation: viewIn 0.4s var(--ease) backwards; }
+.view.active .dash-grid > *:nth-child(2),
+.view.active .view-grid > *:nth-child(2) { animation-delay: 0.07s; }
+.view.active .dash-grid > *:nth-child(3),
+.view.active .view-grid > *:nth-child(3) { animation-delay: 0.14s; }
+.view.active .dash-grid > *:nth-child(4),
+.view.active .view-grid > *:nth-child(4) { animation-delay: 0.21s; }
 
-.dash-card {
+.dash-card, .view-hero {
   background: var(--bg-panel);
   border: 1px solid var(--border-soft);
   border-radius: var(--radius);
@@ -463,13 +464,13 @@ textarea:focus, input:focus {
 .dash-col .panel { margin-bottom: 0; }
 
 /* ── powitanie ── */
-.dash-hello {
+.dash-hello, .view-hero {
   display: flex; align-items: center; gap: 16px;
   padding: 22px 24px;
 }
-.dash-hello-text { min-width: 0; }
-.dash-hello h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
-.dash-hello-mark {
+.dash-hello-text, .view-hero-text { min-width: 0; }
+.dash-hello h1, .view-hero h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+.dash-hello-mark, .view-hero-mark {
   margin-left: auto;
   flex-shrink: 0;
   display: grid; place-items: center;
@@ -605,6 +606,44 @@ textarea:focus, input:focus {
 }
 .dash-goals .panel-link { color: var(--surface-contrast-text); }
 .dash-goals .panel-link:hover { background: rgba(255, 255, 255, 0.1); color: var(--surface-contrast-text); }
+
+/* ═══ pozostałe widoki: to samo bento co na dashboardzie ═══
+   nagłówek jako karta powitalna na całą szerokość, pod nim dwie kolumny:
+   szeroka „główna" (listy, wykres) i wąska boczna (formularze, filtry) */
+.view-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.view-grid > .view-hero { grid-column: 1 / -1; grid-row: 1; }
+/* kolumny przypinamy do konkretnych pól siatki — w DOM formularz bywa przed
+   listą, żeby na telefonie wypadł nad nią; bez tego auto-placement zepchnąłby
+   główną kolumnę do kolejnego wiersza */
+.view-col-main { grid-column: 1; grid-row: 2; }
+.view-col-side { grid-column: 2; grid-row: 2; position: sticky; top: 0; }
+.view-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.view-col > .panel, .view-col > form.panel { margin-bottom: 0; }
+.view-col > #statusGroups > .status-group:last-child { margin-bottom: 0; }
+
+/* filtr tagów jako kafelek boczny; bez tagów karta znika, a siatka
+   wraca do jednej kolumny, żeby nie zostawiać pustego pasa */
+.tags-card .tag-filter { margin-bottom: 0; }
+.view-grid:has(#tagFilter:empty) .view-col-side { display: none; }
+.view-grid:has(#tagFilter:empty) { grid-template-columns: minmax(0, 1fr); }
+
+/* wąska kolumna boczna: formularze łamią się na kilka linii zamiast ściskać pola */
+.view-col-side .form-row { flex-wrap: wrap; }
+.view-col-side .form-row > input[type="text"] { flex: 1 1 100%; }
+.view-col-side .form-row .btn { flex: 1 1 auto; }
+.view-col-side #taskText { flex: 1 1 140px; }
+.view-col-side .sprint-input { flex: 1 1 110px !important; }
+.view-col-side .voice-controls #transcriptHint { flex: 1 1 100%; text-align: right; }
+
+/* notatki: lista plików w karcie, edytor obok */
+.view-grid-notes { grid-template-columns: 240px minmax(0, 1fr); }
+.notes-list-col { align-self: start; position: sticky; top: 0; }
+.notes-list-col .btn-block { margin-bottom: 10px; }
 
 /* ═══ dashboard: pinned/ ═══ */
 .panel-link {
@@ -900,8 +939,6 @@ textarea:focus, input:focus {
 .mood-entry-level { font-family: var(--font-mono); color: var(--accent-2); }
 
 /* ═══ notes ═══ */
-.notes-layout { display: grid; grid-template-columns: 220px 1fr; gap: 18px; align-items: start; }
-
 .note-files { display: flex; flex-direction: column; gap: 4px; }
 .note-file {
   display: flex; align-items: center; gap: 8px;
@@ -919,6 +956,7 @@ textarea:focus, input:focus {
 .note-file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .note-editor { margin-bottom: 0; }
+.mood-graph-panel, .task-form, .voice-recorder { margin-bottom: 0; }
 .editor-tabs {
   display: flex; align-items: center; gap: 4px;
   font-size: 12.5px;
@@ -1554,6 +1592,13 @@ button.status-head:hover { color: var(--text); }
 /* ── bento na węższych ekranach: jedna kolumna, sekcje pod spodem ── */
 @media (max-width: 1000px) {
   .dash-grid { grid-template-columns: minmax(0, 1fr); }
+  .view-grid, .view-grid-notes { grid-template-columns: minmax(0, 1fr); }
+  /* kolumny znikają, karty wchodzą wprost do siatki — boczna nad główną */
+  .view-col { display: contents; }
+  .view-col-main, .view-col-side { grid-column: auto; grid-row: auto; position: static; }
+  .view-col-side > * { order: 1; }
+  .view-col-main > * { order: 2; }
+  .notes-list-col { position: static; }
   .dash-actions .quick-actions { display: flex; flex-direction: row; }
   .dash-actions .qa-btn { width: auto; flex: 1 1 160px; }
   /* kolumny znikają — karty wchodzą wprost do siatki, żeby dało się je przestawić */
@@ -1573,11 +1618,11 @@ button.status-head:hover { color: var(--text); }
   .topbar-date { display: none; }
   .views { padding: 22px 16px calc(88px + env(safe-area-inset-bottom, 0px)); }
   .dash-grid { gap: 12px; }
-  .dash-hello { padding: 18px; }
-  .dash-hello h1 { font-size: 20px; }
-  .dash-hello-mark { width: 34px; height: 34px; }
+  .view-grid { gap: 12px; }
+  .dash-hello, .view-hero { padding: 18px; }
+  .dash-hello h1, .view-hero h1 { font-size: 20px; }
+  .dash-hello-mark, .view-hero-mark { width: 34px; height: 34px; }
   .dash-col { gap: 12px; }
-  .notes-layout { grid-template-columns: 1fr; }
   .mood-scale { gap: 6px; }
   .form-row { flex-wrap: wrap; }
   .form-row input { min-width: 140px; }
