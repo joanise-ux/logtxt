@@ -405,10 +405,18 @@
       if (a.loading) return `<div class="attachment att-loading mono"><span class="dim">// ${escapeHtml(a.loadingMsg || tr("media.uploading"))}</span></div>`;
       const cap = editable
         ? `<input type="text" class="att-caption mono" data-id="${a.id}" value="${escapeAttr(a.caption || "")}" placeholder="${escapeAttr(tr("media.ph.caption"))}">`
-        : (a.caption ? `<figcaption class="att-caption-view mono">// ${escapeHtml(a.caption)}</figcaption>` : "");
-      const del = editable ? `<button type="button" class="att-del mono" data-id="${a.id}" title="${escapeAttr(tr("media.delete"))}">rm</button>` : "";
+        : (a.caption ? `<figcaption class="att-caption-view mono">${escapeHtml(a.caption)}</figcaption>` : "");
+      const del = editable ? `<button type="button" class="att-del mono" data-id="${a.id}" title="${escapeAttr(tr("media.delete"))}">✕</button>` : "";
+      // zdjęcie jako mała ikona folderu — pełny kadr otwiera podgląd na cały ekran
       return `<figure class="attachment att-image" data-att="${a.id}">
-        <div class="att-image-frame"><img src="${escapeAttr(a.src)}" alt="${escapeAttr(a.caption || "")}" loading="lazy">${del}</div>
+        <button type="button" class="att-folder" data-zoom title="${escapeAttr(tr("media.open"))}">
+          <span class="folder-tab" aria-hidden="true"></span>
+          <span class="folder-body">
+            <img src="${escapeAttr(a.src)}" alt="${escapeAttr(a.caption || "")}" loading="lazy">
+            <span class="folder-front" aria-hidden="true"></span>
+          </span>
+        </button>
+        ${del}
         ${cap}
       </figure>`;
     }
@@ -435,11 +443,74 @@
     return "";
   }
 
-  // klik w zdjęcie rozwija panel do pełnego kadru — działa w edytorze,
-  // w karcie wpisu i w podglądzie notatki, stąd jedna delegacja na dokument
+  /* ── podgląd zdjęcia na cały ekran ──
+     klik w ikonę folderu otwiera lightbox; strzałki i klawiatura chodzą po
+     zdjęciach z tego samego wpisu / notatki */
+  const lightbox = $("#lightbox");
+  let lightboxGroup = [];
+  let lightboxIndex = 0;
+
+  function showLightboxAt(i) {
+    if (!lightboxGroup.length) return;
+    lightboxIndex = (i + lightboxGroup.length) % lightboxGroup.length;
+    const cur = lightboxGroup[lightboxIndex];
+    $("#lightboxImg").src = cur.src;
+    $("#lightboxImg").alt = cur.caption;
+    $("#lightboxCaption").textContent = cur.caption
+      ? (lightboxGroup.length > 1 ? `// ${cur.caption} · ${lightboxIndex + 1}/${lightboxGroup.length}` : `// ${cur.caption}`)
+      : (lightboxGroup.length > 1 ? `// ${lightboxIndex + 1}/${lightboxGroup.length}` : "");
+    const multi = lightboxGroup.length > 1;
+    $("#lightboxPrev").hidden = !multi;
+    $("#lightboxNext").hidden = !multi;
+  }
+
+  function openLightbox(fig) {
+    const host = fig.closest(".media-attachments") || fig.parentElement;
+    const figs = [...host.querySelectorAll(".att-image")];
+    lightboxGroup = figs.map((f) => {
+      const img = f.querySelector("img");
+      const capInput = f.querySelector(".att-caption");
+      const capView = f.querySelector(".att-caption-view");
+      return {
+        src: img ? img.src : "",
+        caption: capInput ? capInput.value : (capView ? capView.textContent.trim() : ""),
+      };
+    });
+    showLightboxAt(figs.indexOf(fig));
+    lightbox.hidden = false;
+    document.body.classList.add("lightbox-open");
+    $("#lightboxClose").focus();
+  }
+
+  function closeLightbox() {
+    lightbox.hidden = true;
+    $("#lightboxImg").src = "";
+    document.body.classList.remove("lightbox-open");
+  }
+
+  // jedna delegacja na dokument — ikony powstają w edytorze, w karcie wpisu
+  // i w podglądzie notatki, każda po swoim renderze
   document.addEventListener("click", (ev) => {
-    const img = ev.target.closest(".att-image img");
-    if (img) img.closest(".att-image").classList.toggle("zoomed");
+    const folder = ev.target.closest("[data-zoom]");
+    if (folder) {
+      ev.preventDefault();
+      openLightbox(folder.closest(".att-image"));
+    }
+  });
+
+  lightbox.addEventListener("click", (ev) => {
+    // klik w tło zamyka; klik w samo zdjęcie zostawia podgląd otwarty
+    if (ev.target === lightbox || ev.target.id === "lightboxCaption") closeLightbox();
+  });
+  $("#lightboxClose").addEventListener("click", closeLightbox);
+  $("#lightboxPrev").addEventListener("click", () => showLightboxAt(lightboxIndex - 1));
+  $("#lightboxNext").addEventListener("click", () => showLightboxAt(lightboxIndex + 1));
+
+  document.addEventListener("keydown", (ev) => {
+    if (lightbox.hidden) return;
+    if (ev.key === "Escape") { ev.preventDefault(); closeLightbox(); }
+    else if (ev.key === "ArrowLeft") showLightboxAt(lightboxIndex - 1);
+    else if (ev.key === "ArrowRight") showLightboxAt(lightboxIndex + 1);
   });
 
   function renderAttachmentsList(list, opts) {

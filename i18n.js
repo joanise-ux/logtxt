@@ -240,6 +240,11 @@
       "media.err.notImage": "// błąd: to nie jest obraz",
       "media.err.generic": "// błąd: {msg}",
       "media.done": "// gotowe",
+      "media.open": "Otwórz zdjęcie na cały ekran",
+      "media.close": "Zamknij podgląd",
+      "media.prev": "Poprzednie zdjęcie",
+      "media.next": "Następne zdjęcie",
+      "media.aria.viewer": "Podgląd zdjęcia",
 
       /* ── import starych danych ── */
       "import.prompt": "Znaleziono lokalny dziennik z tej przeglądarki: {total} wpisów ({entries} entries, {moods} mood, {notes} notatek, {tasks} zadań).\n\nPrzenieść je na konto? Nagrania głosowe nie zostaną przeniesione.",
@@ -472,6 +477,11 @@
       "media.err.notImage": "// error: that is not an image",
       "media.err.generic": "// error: {msg}",
       "media.done": "// done",
+      "media.open": "Open the photo full screen",
+      "media.close": "Close the viewer",
+      "media.prev": "Previous photo",
+      "media.next": "Next photo",
+      "media.aria.viewer": "Photo viewer",
 
       /* ── import starych danych ── */
       "import.prompt": "Found a local journal from this browser: {total} records ({entries} entries, {moods} mood, {notes} notes, {tasks} tasks).\n\nMove them to your account? Voice recordings will not be moved.",

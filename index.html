@@ -543,6 +543,15 @@
     <span class="undo-progress" aria-hidden="true"><span class="undo-progress-fill" id="undoFill"></span></span>
   </div>
 
+  <!-- podgląd zdjęcia na cały ekran — otwierany kliknięciem w ikonę folderu -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" data-i18n-aria="media.aria.viewer" aria-label="Podgląd zdjęcia" hidden>
+    <button type="button" class="lightbox-close mono" id="lightboxClose" data-i18n-aria="media.close" aria-label="Zamknij podgląd">esc ✕</button>
+    <button type="button" class="lightbox-nav lightbox-prev mono" id="lightboxPrev" data-i18n-aria="media.prev" aria-label="Poprzednie zdjęcie">‹</button>
+    <img id="lightboxImg" alt="">
+    <p class="lightbox-caption mono" id="lightboxCaption"></p>
+    <button type="button" class="lightbox-nav lightbox-next mono" id="lightboxNext" data-i18n-aria="media.next" aria-label="Następne zdjęcie">›</button>
+  </div>
+
   <div class="sidebar-scrim" id="scrim"></div>
 
   <!-- klient Supabase trzymany w repo: bez build stepu i bez zależności od CDN-a,
