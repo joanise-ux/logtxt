@@ -229,16 +229,13 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 /* ── views ── */
 .views { flex: 1; overflow-y: auto; padding: 30px 28px 60px; }
 
-.view { display: none; max-width: 780px; margin: 0 auto; }
+.view { display: none; max-width: 1180px; margin: 0 auto; }
 .view.active { display: block; animation: viewIn 0.32s var(--ease); }
-.view-dash { max-width: 1180px; }
 @keyframes viewIn {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.view-head { margin-bottom: 24px; }
-.view-head h1 { font-size: 21px; font-weight: 600; letter-spacing: -0.01em; }
 .view-sub { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-faint); margin-top: 4px; }
 
 /* ═══ komponenty ═══ */
@@ -324,41 +321,6 @@ textarea:focus, input:focus {
 /* ── karty wpisów ── */
 .entry-list { display: flex; flex-direction: column; gap: 14px; }
 
-/* ═══ entries/: lista w bocznym pasku, treść po prawej ═══
-   przy dużej liczbie wpisów jedna długa kolumna gubiła kontekst */
-.entries-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 18px; align-items: start; }
-.entries-list-col {
-  position: sticky;
-  top: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px;
-  margin-bottom: 0;
-  max-height: calc(100vh - 120px);
-  min-width: 0;
-}
-.entries-list-col .panel-title, .notes-list-col .panel-title { margin-bottom: 2px; }
-.entries-list-col .btn-block { margin-bottom: 0; }
-/* filtr tagów bywa długi — miękkie ścięcie zamiast ucinania chipów w pół */
-.entries-list-col .tag-filter {
-  margin: 0;
-  max-height: 92px;
-  overflow-y: auto;
-  mask-image: linear-gradient(180deg, #000 74%, transparent 100%);
-  -webkit-mask-image: linear-gradient(180deg, #000 74%, transparent 100%);
-}
-.entry-files {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  overflow-y: auto;
-  padding-right: 4px;
-  min-height: 0;
-  /* miękkie ścięcie u dołu — widać, że lista leci dalej */
-  mask-image: linear-gradient(180deg, #000 calc(100% - 26px), transparent 100%);
-  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 26px), transparent 100%);
-}
 .entry-file-day {
   font-size: 11px;
   color: var(--text-faint);
@@ -391,7 +353,8 @@ textarea:focus, input:focus {
 .entry-file-mood { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 3px; }
 .entry-file-clip { flex: 0 0 auto; font-size: 10px; color: var(--text-faint); }
 
-.entries-main { min-width: 0; }
+.entries-main { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.entries-main > .panel, .entries-main > form.panel { margin-bottom: 0; }
 /* w prawej kolumnie karta jest jedna — akcje nie muszą się chować za hoverem */
 .entries-main .entry-edit, .entries-main .entry-del { opacity: 1; }
 .entries-main .entry-form[hidden] { display: none; }
@@ -516,12 +479,16 @@ textarea:focus, input:focus {
 .dash-hello, .dash-actions { align-self: stretch; }
 
 /* „ładowanie sesji" — karty wchodzą kaskadą */
-.view[data-view="dashboard"].active .dash-grid > * { animation: viewIn 0.4s var(--ease) backwards; }
-.view[data-view="dashboard"].active .dash-grid > *:nth-child(2) { animation-delay: 0.07s; }
-.view[data-view="dashboard"].active .dash-grid > *:nth-child(3) { animation-delay: 0.14s; }
-.view[data-view="dashboard"].active .dash-grid > *:nth-child(4) { animation-delay: 0.21s; }
+.view.active .dash-grid > *,
+.view.active .view-grid > * { animation: viewIn 0.4s var(--ease) backwards; }
+.view.active .dash-grid > *:nth-child(2),
+.view.active .view-grid > *:nth-child(2) { animation-delay: 0.07s; }
+.view.active .dash-grid > *:nth-child(3),
+.view.active .view-grid > *:nth-child(3) { animation-delay: 0.14s; }
+.view.active .dash-grid > *:nth-child(4),
+.view.active .view-grid > *:nth-child(4) { animation-delay: 0.21s; }
 
-.dash-card {
+.dash-card, .view-hero {
   background: var(--bg-panel);
   border: 1px solid var(--border-soft);
   border-radius: var(--radius);
@@ -536,16 +503,29 @@ textarea:focus, input:focus {
 }
 
 .dash-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+/* ── podsumowanie tygodnia: pasek przez całą szerokość, nad obiema kolumnami ── */
+.dash-summary-card { grid-column: 1 / -1; }
+.dash-summary {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  margin: -6px 0 14px;
+  line-height: 1.7;
+}
+.dash-summary .sum-val { color: var(--text); }
+.dash-summary .sum-up { color: var(--accent); }
+.dash-summary .sum-down { color: var(--accent-warn); }
+.dash-summary .sum-flat { color: var(--text-faint); }
 .dash-col .panel { margin-bottom: 0; }
 
 /* ── powitanie ── */
-.dash-hello {
+.dash-hello, .view-hero {
   display: flex; align-items: center; gap: 16px;
   padding: 22px 24px;
 }
-.dash-hello-text { min-width: 0; }
-.dash-hello h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
-.dash-hello-mark {
+.dash-hello-text, .view-hero-text { min-width: 0; }
+.dash-hello h1, .view-hero h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+.dash-hello-mark, .view-hero-mark {
   margin-left: auto;
   flex-shrink: 0;
   display: grid; place-items: center;
@@ -613,7 +593,7 @@ textarea:focus, input:focus {
 /* ── kafelki sekcji ── */
 .dash-tiles {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 10px;
 }
 .tile {
@@ -626,7 +606,6 @@ textarea:focus, input:focus {
   min-width: 0;
   transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease), transform 0.2s var(--ease), background 0.35s var(--ease);
 }
-.tile:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .tile:hover, .tile:focus-visible {
   border-color: var(--accent);
   box-shadow: var(--glow);
@@ -682,6 +661,82 @@ textarea:focus, input:focus {
 }
 .dash-goals .panel-link { color: var(--surface-contrast-text); }
 .dash-goals .panel-link:hover { background: rgba(255, 255, 255, 0.1); color: var(--surface-contrast-text); }
+
+/* ═══ pozostałe widoki: to samo bento co na dashboardzie ═══
+   nagłówek jako karta powitalna na całą szerokość, pod nim dwie kolumny:
+   szeroka „główna" (listy, wykres) i wąska boczna (formularze, filtry) */
+.view-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.view-grid > .view-hero { grid-column: 1 / -1; grid-row: 1; }
+/* kolumny przypinamy do konkretnych pól siatki — w DOM formularz bywa przed
+   listą, żeby na telefonie wypadł nad nią; bez tego auto-placement zepchnąłby
+   główną kolumnę do kolejnego wiersza */
+.view-col-main { grid-column: 1; grid-row: 2; }
+.view-col-side { grid-column: 2; grid-row: 2; position: sticky; top: 0; }
+.view-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.view-col > .panel, .view-col > form.panel { margin-bottom: 0; }
+.view-col > #statusGroups > .status-group:last-child { margin-bottom: 0; }
+
+/* filtr tagów jako kafelek boczny; bez tagów karta znika, a siatka
+   wraca do jednej kolumny, żeby nie zostawiać pustego pasa */
+.tags-card .tag-filter { margin-bottom: 0; }
+.view-grid:has(#tagFilter:empty) .view-col-side { display: none; }
+.view-grid:has(#tagFilter:empty) { grid-template-columns: minmax(0, 1fr); }
+
+/* wąska kolumna boczna: formularze łamią się na kilka linii zamiast ściskać pola */
+.view-col-side .form-row { flex-wrap: wrap; }
+.view-col-side .form-row > input[type="text"] { flex: 1 1 100%; }
+.view-col-side .form-row .btn { flex: 1 1 auto; }
+.view-col-side #taskText { flex: 1 1 140px; }
+.view-col-side .sprint-input { flex: 1 1 110px !important; }
+.view-col-side .voice-controls #transcriptHint { flex: 1 1 100%; text-align: right; }
+
+/* notatki: lista plików w karcie, edytor obok */
+.view-grid-notes { grid-template-columns: 240px minmax(0, 1fr); }
+.notes-list-col { align-self: start; position: sticky; top: 0; }
+.notes-list-col .btn-block { margin-bottom: 10px; }
+
+/* ═══ entries/: lista wpisów jako wyspa obok treści (jak w notes/) ═══
+   przy dużej liczbie wpisów jedna długa kolumna gubiła kontekst */
+.view-grid-entries { grid-template-columns: 280px minmax(0, 1fr); }
+/* karta tagów siedzi tu w wyspie, więc pusty filtr nie może zwijać siatki */
+.view-grid.view-grid-entries:has(#tagFilter:empty) { grid-template-columns: 280px minmax(0, 1fr); }
+.entries-list-col {
+  align-self: start;
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: calc(100vh - 120px);
+  min-width: 0;
+}
+.entries-list-col .dash-card-label { margin-bottom: 2px; }
+.entries-list-col .btn-block { margin-bottom: 0; }
+/* filtr tagów bywa długi — miękkie ścięcie zamiast ucinania chipów w pół */
+.entries-list-col .tag-filter {
+  margin: 0;
+  max-height: 92px;
+  overflow-y: auto;
+  mask-image: linear-gradient(180deg, #000 74%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, #000 74%, transparent 100%);
+}
+.entry-files {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  padding-right: 4px;
+  min-height: 0;
+  /* miękkie ścięcie u dołu — widać, że lista leci dalej */
+  mask-image: linear-gradient(180deg, #000 calc(100% - 26px), transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 26px), transparent 100%);
+}
+
 
 /* ═══ dashboard: pinned/ ═══ */
 .panel-link {
@@ -977,17 +1032,6 @@ textarea:focus, input:focus {
 .mood-entry-level { font-family: var(--font-mono); color: var(--accent-2); }
 
 /* ═══ notes ═══ */
-.notes-layout { display: grid; grid-template-columns: 220px 1fr; gap: 18px; align-items: start; }
-
-.notes-list-col {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px;
-  margin-bottom: 0;
-  min-width: 0;
-}
-.notes-list-col .btn-block { margin-bottom: 0; }
 .note-files { display: flex; flex-direction: column; gap: 4px; }
 .note-file {
   display: flex; align-items: center; gap: 8px;
@@ -1005,6 +1049,7 @@ textarea:focus, input:focus {
 .note-file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .note-editor { margin-bottom: 0; }
+.mood-graph-panel, .task-form, .voice-recorder { margin-bottom: 0; }
 .editor-tabs {
   display: flex; align-items: center; gap: 4px;
   font-size: 12.5px;
@@ -1738,6 +1783,13 @@ body.lightbox-open { overflow: hidden; }
 /* ── bento na węższych ekranach: jedna kolumna, sekcje pod spodem ── */
 @media (max-width: 1000px) {
   .dash-grid { grid-template-columns: minmax(0, 1fr); }
+  .view-grid, .view-grid-notes, .view-grid.view-grid-entries:has(#tagFilter:empty) { grid-template-columns: minmax(0, 1fr); }
+  /* kolumny znikają, karty wchodzą wprost do siatki — boczna nad główną */
+  .view-col { display: contents; }
+  .view-col-main, .view-col-side { grid-column: auto; grid-row: auto; position: static; }
+  .view-col-side > * { order: 1; }
+  .view-col-main > * { order: 2; }
+  .notes-list-col { position: static; }
   .dash-actions .quick-actions { display: flex; flex-direction: row; }
   .dash-actions .qa-btn { width: auto; flex: 1 1 160px; }
   /* kolumny znikają — karty wchodzą wprost do siatki, żeby dało się je przestawić */
@@ -1747,9 +1799,7 @@ body.lightbox-open { overflow: hidden; }
   .recent-panel { order: 2; }
   .pinned-panel { order: 3; }
   .dash-goals { order: 4; }
-  .dash-sections { order: 5; }
   .dash-tiles { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-  .tile:last-child:nth-child(odd) { grid-column: auto; }
 }
 
 @media (max-width: 760px) {
@@ -1759,12 +1809,11 @@ body.lightbox-open { overflow: hidden; }
   .topbar-date { display: none; }
   .views { padding: 22px 16px calc(88px + env(safe-area-inset-bottom, 0px)); }
   .dash-grid { gap: 12px; }
-  .dash-hello { padding: 18px; }
-  .dash-hello h1 { font-size: 20px; }
-  .dash-hello-mark { width: 34px; height: 34px; }
+  .view-grid { gap: 12px; }
+  .dash-hello, .view-hero { padding: 18px; }
+  .dash-hello h1, .view-hero h1 { font-size: 20px; }
+  .dash-hello-mark, .view-hero-mark { width: 34px; height: 34px; }
   .dash-col { gap: 12px; }
-  .notes-layout { grid-template-columns: 1fr; }
-  .entries-layout { grid-template-columns: 1fr; }
   .entries-list-col { position: static; max-height: none; }
   .entry-files { max-height: 42vh; }
   .mood-scale { gap: 6px; }

@@ -283,7 +283,14 @@
               </div>
             </div>
 
-            <!-- ── kolumna główna: log aktywności, przypięte, zadania ── -->
+            <!-- ── podsumowanie tygodnia + skróty do sekcji ── -->
+            <div class="dash-card dash-summary-card">
+              <div class="dash-card-label mono"><span class="dim">$</span> stat --week</div>
+              <p class="dash-summary mono" id="dashSummary"></p>
+              <div class="dash-tiles" id="dashTiles"></div>
+            </div>
+
+            <!-- ── kolumna główna: log aktywności + przypięte ── -->
             <div class="dash-col dash-col-main">
               <div class="panel recent-panel">
                 <div class="panel-title mono"><span class="dim">$</span> tail -n 6 recent_activity.log</div>
@@ -299,19 +306,9 @@
                 </div>
                 <div class="pinned-list" id="pinnedList"></div>
               </div>
-
-              <div class="panel tasks-preview-panel dash-goals" id="tasksPreviewPanel">
-                <div class="panel-title mono">
-                  <span class="dim">$</span> tasks --open
-                  <span class="dim" id="tasksPreviewCount"></span>
-                  <span class="flex-spacer"></span>
-                  <button type="button" class="panel-link mono" id="tasksAllLink" hidden data-i18n="dash.tasks.all">zobacz wszystkie zadania →</button>
-                </div>
-                <div class="tasks-preview-list" id="tasksPreviewList"></div>
-              </div>
             </div>
 
-            <!-- ── kolumna boczna: motto dnia + skróty do sekcji ── -->
+            <!-- ── kolumna boczna: nastrój, motto dnia, otwarte zadania ── -->
             <div class="dash-col dash-col-side">
               <!-- ── nastrój: jedyne wejście do mood.log ── -->
               <div class="dash-card dash-mood" id="dashMood">
@@ -336,9 +333,14 @@
                 <span class="motto-mark" aria-hidden="true">▍</span>
               </div>
 
-              <div class="dash-card dash-sections">
-                <div class="dash-card-label mono"><span class="dim">$</span> ls ~/</div>
-                <div class="dash-tiles" id="dashTiles"></div>
+              <div class="panel tasks-preview-panel dash-goals" id="tasksPreviewPanel">
+                <div class="panel-title mono">
+                  <span class="dim">$</span> tasks --open
+                  <span class="dim" id="tasksPreviewCount"></span>
+                  <span class="flex-spacer"></span>
+                  <button type="button" class="panel-link mono" id="tasksAllLink" hidden data-i18n="dash.tasks.all">zobacz wszystkie zadania →</button>
+                </div>
+                <div class="tasks-preview-list" id="tasksPreviewList"></div>
               </div>
             </div>
 
@@ -347,16 +349,20 @@
 
         <!-- ═══ entries/ ═══ -->
         <section class="view" data-view="entries">
-          <div class="view-head">
-            <h1 class="mono">entries/</h1>
-            <p class="view-sub" data-i18n="entries.sub">// twoje wpisy — każdy jak osobny plik</p>
-          </div>
+          <div class="view-grid view-grid-entries">
 
-          <!-- lista wpisów żyje w bocznym pasku, treść po prawej — przy setkach
-               wpisów przewijanie jednej długiej kolumny gubiło kontekst -->
-          <div class="entries-layout">
-            <div class="entries-list-col panel">
-              <div class="panel-title mono"><span class="dim">$</span> ls entries/</div>
+            <div class="view-hero">
+              <div class="view-hero-text">
+                <h1 class="mono">entries/</h1>
+                <p class="view-sub" data-i18n="entries.sub">// twoje wpisy — każdy jak osobny plik</p>
+              </div>
+              <span class="view-hero-mark mono" aria-hidden="true">▍</span>
+            </div>
+
+            <!-- lista wpisów jako wyspa obok treści — jak w notes/; przy setkach
+                 wpisów przewijanie jednej długiej kolumny gubiło kontekst -->
+            <div class="dash-card entries-list-col">
+              <div class="dash-card-label mono"><span class="dim">$</span> ls entries/</div>
               <button class="btn btn-primary mono btn-block" id="newEntryBtn" data-i18n="entries.newBtn">+ nowy wpis</button>
               <div class="tag-filter mono" id="tagFilter"></div>
               <div class="entry-files" id="entryList"></div>
@@ -384,66 +390,82 @@
 
               <div class="entry-detail" id="entryDetail"></div>
             </div>
+
           </div>
         </section>
 
         <!-- ═══ mood.log ═══ -->
         <section class="view" data-view="mood">
-          <div class="view-head">
-            <h1 class="mono">mood.log</h1>
-            <p class="view-sub" data-i18n="mood.sub">// jak się dziś czujesz? zapisz stan procesu</p>
-          </div>
+          <div class="view-grid">
 
-          <form class="panel mood-form" id="moodForm">
-            <div class="panel-title mono"><span class="dim">$</span> mood --set</div>
-            <div class="mood-scale" id="moodScale" role="radiogroup" data-i18n-aria="mood.aria.scale" aria-label="Poziom nastroju">
-              <button type="button" class="mood-btn" data-level="1" data-i18n-aria="mood.level.1" aria-label="Bardzo źle"><span class="mood-cell l1"></span><span class="mono">1</span></button>
-              <button type="button" class="mood-btn" data-level="2" data-i18n-aria="mood.level.2" aria-label="Słabo"><span class="mood-cell l2"></span><span class="mono">2</span></button>
-              <button type="button" class="mood-btn" data-level="3" data-i18n-aria="mood.level.3" aria-label="Neutralnie"><span class="mood-cell l3"></span><span class="mono">3</span></button>
-              <button type="button" class="mood-btn" data-level="4" data-i18n-aria="mood.level.4" aria-label="Dobrze"><span class="mood-cell l4"></span><span class="mono">4</span></button>
-              <button type="button" class="mood-btn" data-level="5" data-i18n-aria="mood.level.5" aria-label="Świetnie"><span class="mood-cell l5"></span><span class="mono">5</span></button>
-            </div>
-            <div class="form-row">
-              <input type="text" id="moodNote" placeholder="// krótki kontekst, opcjonalnie" data-i18n-ph="mood.ph.note">
-              <button type="submit" class="btn btn-primary mono" disabled id="moodSubmit">log mood</button>
-            </div>
-          </form>
-
-          <div class="panel">
-            <div class="panel-title mono">
-              <span class="dim">$</span> mood --graph <span class="dim" id="moodRangeLabel">// ostatnie 28 dni</span>
-              <span class="mood-range" id="moodRange" role="group" data-i18n-aria="mood.aria.range" aria-label="Zakres grafu">
-                <button type="button" class="range-btn" data-days="28">28d</button>
-                <button type="button" class="range-btn" data-days="45">45d</button>
-                <button type="button" class="range-btn" data-days="90">90d</button>
-              </span>
-            </div>
-            <div class="mood-graph-wrap">
-              <div class="mood-dow mono" aria-hidden="true">
-                <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            <div class="view-hero">
+              <div class="view-hero-text">
+                <h1 class="mono">mood.log</h1>
+                <p class="view-sub" data-i18n="mood.sub">// jak się dziś czujesz? zapisz stan procesu</p>
               </div>
-              <div class="mood-graph" id="moodGraph"></div>
+              <span class="view-hero-mark mono" aria-hidden="true">▍</span>
             </div>
-            <div class="mood-legend mono">
-              <span class="dim" data-i18n="mood.worse">gorzej</span>
-              <span class="mood-cell l1"></span><span class="mood-cell l2"></span><span class="mood-cell l3"></span><span class="mood-cell l4"></span><span class="mood-cell l5"></span>
-              <span class="dim" data-i18n="mood.better">lepiej</span>
-            </div>
-          </div>
 
-          <div class="entry-list" id="moodList"></div>
+            <div class="view-col view-col-side">
+              <form class="panel mood-form" id="moodForm">
+                <div class="panel-title mono"><span class="dim">$</span> mood --set</div>
+                <div class="mood-scale" id="moodScale" role="radiogroup" data-i18n-aria="mood.aria.scale" aria-label="Poziom nastroju">
+                  <button type="button" class="mood-btn" data-level="1" data-i18n-aria="mood.level.1" aria-label="Bardzo źle"><span class="mood-cell l1"></span><span class="mono">1</span></button>
+                  <button type="button" class="mood-btn" data-level="2" data-i18n-aria="mood.level.2" aria-label="Słabo"><span class="mood-cell l2"></span><span class="mono">2</span></button>
+                  <button type="button" class="mood-btn" data-level="3" data-i18n-aria="mood.level.3" aria-label="Neutralnie"><span class="mood-cell l3"></span><span class="mono">3</span></button>
+                  <button type="button" class="mood-btn" data-level="4" data-i18n-aria="mood.level.4" aria-label="Dobrze"><span class="mood-cell l4"></span><span class="mono">4</span></button>
+                  <button type="button" class="mood-btn" data-level="5" data-i18n-aria="mood.level.5" aria-label="Świetnie"><span class="mood-cell l5"></span><span class="mono">5</span></button>
+                </div>
+                <div class="form-row">
+                  <input type="text" id="moodNote" placeholder="// krótki kontekst, opcjonalnie" data-i18n-ph="mood.ph.note">
+                  <button type="submit" class="btn btn-primary mono" disabled id="moodSubmit">log mood</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="view-col view-col-main">
+              <div class="panel mood-graph-panel">
+                <div class="panel-title mono">
+                  <span class="dim">$</span> mood --graph <span class="dim" id="moodRangeLabel">// ostatnie 28 dni</span>
+                  <span class="mood-range" id="moodRange" role="group" data-i18n-aria="mood.aria.range" aria-label="Zakres grafu">
+                    <button type="button" class="range-btn" data-days="28">28d</button>
+                    <button type="button" class="range-btn" data-days="45">45d</button>
+                    <button type="button" class="range-btn" data-days="90">90d</button>
+                  </span>
+                </div>
+                <div class="mood-graph-wrap">
+                  <div class="mood-dow mono" aria-hidden="true">
+                    <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                  </div>
+                  <div class="mood-graph" id="moodGraph"></div>
+                </div>
+                <div class="mood-legend mono">
+                  <span class="dim" data-i18n="mood.worse">gorzej</span>
+                  <span class="mood-cell l1"></span><span class="mood-cell l2"></span><span class="mood-cell l3"></span><span class="mood-cell l4"></span><span class="mood-cell l5"></span>
+                  <span class="dim" data-i18n="mood.better">lepiej</span>
+                </div>
+              </div>
+
+              <div class="entry-list" id="moodList"></div>
+            </div>
+
+          </div>
         </section>
 
         <!-- ═══ notes/ ═══ -->
         <section class="view" data-view="notes">
-          <div class="view-head">
-            <h1 class="mono">notes/</h1>
-            <p class="view-sub" data-i18n="notes.sub">// luźne notatki, markdown-friendly</p>
-          </div>
+          <div class="view-grid view-grid-notes">
 
-          <div class="notes-layout">
-            <div class="notes-list-col panel">
-              <div class="panel-title mono"><span class="dim">$</span> ls notes/</div>
+            <div class="view-hero">
+              <div class="view-hero-text">
+                <h1 class="mono">notes/</h1>
+                <p class="view-sub" data-i18n="notes.sub">// luźne notatki, markdown-friendly</p>
+              </div>
+              <span class="view-hero-mark mono" aria-hidden="true">▍</span>
+            </div>
+
+            <div class="dash-card notes-list-col">
+              <div class="dash-card-label mono"><span class="dim">$</span> ls notes/</div>
               <button class="btn btn-primary mono btn-block" id="newNoteBtn" data-i18n="notes.new">+ touch nowa.md</button>
               <div class="note-files" id="noteFiles"></div>
             </div>
@@ -484,52 +506,74 @@
               </div>
               <input type="file" id="noteFileInput" accept="image/jpeg,image/png,image/webp" hidden>
             </div>
+
           </div>
         </section>
 
         <!-- ═══ tasks.todo ═══ -->
         <section class="view" data-view="tasks">
-          <div class="view-head">
-            <h1 class="mono">tasks.todo</h1>
-            <p class="view-sub" data-i18n="tasks.sub">// zadania posegregowane wg statusu: in_progress → pending → done</p>
-          </div>
+          <div class="view-grid">
 
-          <form class="panel" id="taskForm">
-            <div class="panel-title mono"><span class="dim">$</span> task add</div>
-            <div class="form-row">
-              <span class="mono dim task-prefix">- [ ]</span>
-              <input type="text" id="taskText" placeholder="$ nowe zadanie..." data-i18n-ph="tasks.ph.text">
-              <input type="text" id="taskSprint" class="mono sprint-input" placeholder="sprint" data-i18n-ph="tasks.ph.sprint" list="sprintList">
-              <datalist id="sprintList"></datalist>
-              <button type="submit" class="btn btn-primary mono">add</button>
+            <div class="view-hero">
+              <div class="view-hero-text">
+                <h1 class="mono">tasks.todo</h1>
+                <p class="view-sub" data-i18n="tasks.sub">// zadania posegregowane wg statusu: in_progress → pending → done</p>
+              </div>
+              <span class="view-hero-mark mono" aria-hidden="true">▍</span>
             </div>
-          </form>
 
-          <div id="statusGroups"></div>
+            <div class="view-col view-col-side">
+              <form class="panel task-form" id="taskForm">
+                <div class="panel-title mono"><span class="dim">$</span> task add</div>
+                <div class="form-row">
+                  <span class="mono dim task-prefix">- [ ]</span>
+                  <input type="text" id="taskText" placeholder="$ nowe zadanie..." data-i18n-ph="tasks.ph.text">
+                  <input type="text" id="taskSprint" class="mono sprint-input" placeholder="sprint" data-i18n-ph="tasks.ph.sprint" list="sprintList">
+                  <datalist id="sprintList"></datalist>
+                  <button type="submit" class="btn btn-primary mono">add</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="view-col view-col-main">
+              <div id="statusGroups"></div>
+            </div>
+
+          </div>
         </section>
 
         <!-- ═══ voice/ ═══ -->
         <section class="view" data-view="voice">
-          <div class="view-head">
-            <h1 class="mono">voice/</h1>
-            <p class="view-sub" data-i18n="voice.sub">// notatki głosowe — nagraj i wróć do nich później</p>
-          </div>
+          <div class="view-grid">
 
-          <div class="panel voice-recorder">
-            <div class="panel-title mono"><span class="dim">$</span> rec --mic <span id="recStatus" class="dim" data-i18n="voice.ready">// gotowy</span></div>
-            <canvas id="waveCanvas" class="wave-canvas" height="80"></canvas>
-            <div class="form-row voice-controls">
-              <button type="button" class="btn btn-primary mono" id="recBtn">
-                <span class="rec-dot" aria-hidden="true"></span> record
-              </button>
-              <span class="mono rec-timer" id="recTimer">00:00</span>
-              <span class="flex-spacer"></span>
-              <span class="mono dim" id="transcriptHint"></span>
+            <div class="view-hero">
+              <div class="view-hero-text">
+                <h1 class="mono">voice/</h1>
+                <p class="view-sub" data-i18n="voice.sub">// notatki głosowe — nagraj i wróć do nich później</p>
+              </div>
+              <span class="view-hero-mark mono" aria-hidden="true">▍</span>
             </div>
+
+            <div class="view-col view-col-side">
+              <div class="panel voice-recorder">
+                <div class="panel-title mono"><span class="dim">$</span> rec --mic <span id="recStatus" class="dim" data-i18n="voice.ready">// gotowy</span></div>
+                <canvas id="waveCanvas" class="wave-canvas" height="80"></canvas>
+                <div class="form-row voice-controls">
+                  <button type="button" class="btn btn-primary mono" id="recBtn">
+                    <span class="rec-dot" aria-hidden="true"></span> record
+                  </button>
+                  <span class="mono rec-timer" id="recTimer">00:00</span>
+                  <span class="flex-spacer"></span>
+                  <span class="mono dim" id="transcriptHint"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="view-col view-col-main">
+              <div class="entry-list" id="voiceList"></div>
+            </div>
+
           </div>
-
-
-          <div class="entry-list" id="voiceList"></div>
         </section>
 
       </div>
