@@ -8,7 +8,7 @@
 
 | Sekcja       | Co robi |
 |--------------|---------|
-| `~/dashboard` | Chronologiczny log całej aktywności w stylu `git log`, ze statystykami (commits_today, day_streak) |
+| `~/dashboard` | Układ kafelkowy (bento): powitanie, szybkie akcje, motto dnia, log aktywności w stylu `git log`, przypięte notatki, otwarte zadania i skróty do sekcji — ze statystykami (commits_today, day_streak) |
 | `entries/`   | Wpisy dziennika — każdy jak osobny plik z datownikiem (`2026-07-11_23-42.md`) i tagami (`#refleksja`, `#praca`) |
 | `mood.log`   | Szybki tracker nastroju (1–5) wizualizowany jak GitHub contribution graph, z polem na kontekst |
 | `notes/`     | Luźne notatki markdown-friendly z podglądem `edit / preview` jak w IDE |
