@@ -244,10 +244,7 @@
   const cycleLang = () => window.I18N.setPref(window.I18N.next());
   $("#langToggle").addEventListener("click", cycleLang);
   $("#authLangToggle").addEventListener("click", cycleLang);
-  $("#bottomLangMirror").addEventListener("click", () => {
-    closeBottomSheet();
-    cycleLang();
-  });
+  $("#bottomLangMirror").addEventListener("click", cycleLang);
 
   // po zmianie języka odświeżamy wszystko, co budujemy z JS
   window.I18N.onChange(() => {
@@ -274,8 +271,9 @@
     if (name !== "entries") { editingEntryId = null; editingAttachments = []; }
     $$(".nav-item").forEach((b) => b.classList.toggle("active", b.dataset.view === name));
     $$(".view").forEach((v) => v.classList.toggle("active", v.dataset.view === name));
-    const moreBtn = document.getElementById("bottomNavMore");
-    if (moreBtn) moreBtn.classList.toggle("active", name === "voice");
+    // entries/ i voice/ mieszkają w sheecie profilu — podświetlamy jego kafelek
+    const profileBtn = document.getElementById("bottomNavProfile");
+    if (profileBtn) profileBtn.classList.toggle("active", name === "entries" || name === "voice");
     $("#crumbView").textContent = name === "dashboard" ? "dashboard"
       : name === "mood" ? "mood.log"
       : name === "tasks" ? "tasks.todo"
@@ -299,31 +297,86 @@
   }
   scrim.addEventListener("click", closeSidebar);
 
-  /* ── mobilny bottom nav: sheet "więcej" ── */
-  const bottomSheet = $("#bottomNavSheet");
+  /* ── mobilny bottom nav: sheety "+" (dodawanie) i "profil" ── */
   const bottomSheetScrim = $("#bottomSheetScrim");
-  const bottomMoreBtn = $("#bottomNavMore");
-  function openBottomSheet() {
-    bottomSheet.classList.add("show");
-    bottomSheetScrim.classList.add("show");
-    bottomSheet.setAttribute("aria-hidden", "false");
-    bottomMoreBtn.setAttribute("aria-expanded", "true");
-  }
+  const bottomAddSheet = $("#bottomAddSheet");
+  const bottomProfileSheet = $("#bottomNavSheet");
+  const bottomAddBtn = $("#bottomNavAdd");
+  const bottomProfileBtn = $("#bottomNavProfile");
+  const SHEETS = [
+    { sheet: bottomAddSheet, btn: bottomAddBtn },
+    { sheet: bottomProfileSheet, btn: bottomProfileBtn },
+  ];
+
   function closeBottomSheet() {
-    bottomSheet.classList.remove("show");
+    SHEETS.forEach(({ sheet, btn }) => {
+      sheet.classList.remove("show");
+      sheet.setAttribute("aria-hidden", "true");
+      btn.setAttribute("aria-expanded", "false");
+    });
     bottomSheetScrim.classList.remove("show");
-    bottomSheet.setAttribute("aria-hidden", "true");
-    bottomMoreBtn.setAttribute("aria-expanded", "false");
   }
-  bottomMoreBtn.addEventListener("click", () => {
-    if (bottomSheet.classList.contains("show")) closeBottomSheet();
-    else openBottomSheet();
+  function openBottomSheet(target) {
+    closeBottomSheet();
+    const entry = SHEETS.find((x) => x.sheet === target);
+    if (!entry) return;
+    entry.sheet.classList.add("show");
+    entry.sheet.setAttribute("aria-hidden", "false");
+    entry.btn.setAttribute("aria-expanded", "true");
+    bottomSheetScrim.classList.add("show");
+  }
+  SHEETS.forEach(({ sheet, btn }) => {
+    btn.addEventListener("click", () => {
+      if (sheet.classList.contains("show")) closeBottomSheet();
+      else openBottomSheet(sheet);
+    });
   });
   bottomSheetScrim.addEventListener("click", closeBottomSheet);
-  // mirror actions: motyw + wyloguj z sheetu
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeBottomSheet();
+  });
+
+  // "+" → skok do sekcji i fokus na polu, w którym faktycznie się pisze
+  function startNew(kind) {
+    if (kind === "mood") {
+      showView("dashboard");
+      setTimeout(() => {
+        const scale = $("#dashMoodScale");
+        if (!scale) return;
+        scale.closest(".dash-card").scrollIntoView({ behavior: "smooth", block: "center" });
+        const first = scale.querySelector(".mood-btn");
+        if (first) first.focus();
+      }, 90);
+      return;
+    }
+    if (kind === "note") {
+      showView("notes");
+      setTimeout(() => {
+        $("#newNoteBtn").click();
+        const title = $("#noteTitle");
+        if (title) title.focus();
+      }, 90);
+      return;
+    }
+    const focusMap = {
+      entry: ["entries", "#entryBody"],
+      task: ["tasks", "#taskText"],
+      voice: ["voice", "#recBtn"],
+    };
+    const [view, sel] = focusMap[kind];
+    showView(view);
+    setTimeout(() => { const el = $(sel); if (el) el.focus(); }, 90);
+  }
+  $$("[data-add]").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      closeBottomSheet();
+      startNew(btn.dataset.add);
+    })
+  );
+
+  // mirror actions: motyw + wyloguj z sheetu profilu
   $("#bottomThemeMirror").addEventListener("click", () => {
     $("#themeToggle").click();
-    closeBottomSheet();
   });
   $("#bottomLogoutMirror").addEventListener("click", () => {
     closeBottomSheet();
@@ -2338,9 +2391,10 @@
   });
 
   function refreshSidebarUser() {
-    const nameEl = $("#sidebarUserName");
-    if (!nameEl) return;
-    nameEl.textContent = (session && session.name) ? session.name : "guest";
+    const name = (session && session.name) ? session.name : "guest";
+    [$("#sidebarUserName"), $("#bottomUserName")].forEach((el) => {
+      if (el) el.textContent = name;
+    });
   }
 
   // wspólne wejście do aplikacji: zaciąga dane konta, dopiero potem pokazuje ekran
