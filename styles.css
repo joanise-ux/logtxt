@@ -1376,6 +1376,18 @@ button.status-head:hover { color: var(--text); }
 .vt-redo:hover:not(:disabled) { color: var(--accent-3); border-color: var(--accent-3); }
 .vt-redo:disabled { opacity: 0.45; cursor: not-allowed; }
 
+/* skok z karty nagrania do wpisu w entries/ */
+.vt-open {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  transition: color 0.2s var(--ease);
+}
+.vt-open:hover { color: var(--accent-3); }
+
+/* treść wpisu na karcie nagrania (gdy różni się od transkrypcji) */
+.voice-body { margin-top: 10px; }
+
 /* ═══ whisper --config (Groq) ═══ */
 .stt-panel > summary {
   cursor: pointer;

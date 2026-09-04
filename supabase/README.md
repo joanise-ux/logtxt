@@ -21,7 +21,7 @@ z `localStorage`:
 - `state.moods` → `moods` (jeden wpis na dzień wymuszony przez `unique (user_id, day)`)
 - `state.notes` → `notes` (`updated_at` odświeżane triggerem w bazie)
 - `state.tasks` → `tasks` (`status` pilnowany przez `check`)
-- `state.voice` → `voice_notes` + plik audio w buckecie `media`
+- `state.voice` → `voice_notes` — tabela została tylko dla starych nagrań: przy pierwszym wczytaniu aplikacja przenosi je do `entries` (jako załącznik audio) i czyści kolekcję. Nowe nagrania od razu lądują w `entries` + plik audio w buckecie `media`
 
 Nagrania przestają być base64 w `localStorage`, więc znika limit ~5 MB i komunikat
 `local: FULL`.
