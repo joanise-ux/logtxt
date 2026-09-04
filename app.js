@@ -336,7 +336,7 @@
       entries: state.entries.length,
       notes: state.notes.length,
       tasks: state.tasks.filter((t) => t.status !== "done").length,
-      voice: state.voice.length,
+      voice: voiceEntries().length,
     };
     $$(".nav-count").forEach((el) => {
       const n = counts[el.dataset.count];
@@ -422,9 +422,10 @@
     }
     if (a.type === "audio") {
       const wave = a.peaks ? a.peaks.map((p) => WAVE_CHARS_STR[Math.min(7, Math.floor(p * 8))]).join("") : "";
+      const sameAsBody = (opts.skipTranscript || "").trim() && (opts.skipTranscript || "").trim() === (a.transcript || "").trim();
       const transcript = a.transcribing
         ? `<div class="voice-transcript vt-status mono">${escapeHtml(tr("media.transcribing"))}<span class="cursor" aria-hidden="true">_</span></div>`
-        : a.transcript
+        : a.transcript && !sameAsBody
           ? `<div class="voice-transcript"><span class="vt-text">${escapeHtml(a.transcript)}</span></div>`
           : "";
       const del = editable ? `<button type="button" class="att-del mono" data-id="${a.id}" title="${escapeAttr(tr("media.delete"))}">rm</button>` : "";
@@ -836,13 +837,13 @@
       const head = k === lastDay ? "" : `<div class="entry-file-day mono">${escapeHtml(fmtDayLabel(e.ts))}</div>`;
       lastDay = k;
       const title = e.body.split("\n").find((l) => l.trim()) || "";
-      const label = title.trim() || tr("entries.file.noText");
+      const label = title.trim() || entryAudioLabel(e) || tr("entries.file.noText");
       const mood = moodOfDay(k);
       return `${head}<button type="button" class="entry-file ${e.id === activeEntryId ? "active" : ""}" data-id="${e.id}">
         <span class="entry-file-time mono">${fmtTime(e.ts)}</span>
         <span class="entry-file-name">${escapeHtml(label.slice(0, 80))}</span>
         ${mood ? `<span class="mood-cell l${mood} entry-file-mood" aria-hidden="true"></span>` : ""}
-        ${e.attachments && e.attachments.length ? `<span class="entry-file-clip mono" aria-hidden="true">◍</span>` : ""}
+        ${firstAudio(e) ? `<span class="entry-file-clip mono" aria-hidden="true">◉</span>` : e.attachments && e.attachments.length ? `<span class="entry-file-clip mono" aria-hidden="true">◍</span>` : ""}
       </button>`;
     });
     $("#entryList").innerHTML = rows.join("");
@@ -1008,7 +1009,7 @@
     if (e.id === editingEntryId) return entryEditCard(e);
     ensureAttachments(e);
     const attHtml = e.attachments.length
-      ? `<div class="media-attachments media-view">${renderAttachmentsList(e.attachments, { editable: false })}</div>`
+      ? `<div class="media-attachments media-view">${renderAttachmentsList(e.attachments, { editable: false, skipTranscript: e.body })}</div>`
       : "";
     const dayMood = moodOfDay(dayKey(e.ts));
     // czysta informacja — do mood.log wchodzi się wyłącznie z dashboardu
@@ -1627,7 +1628,10 @@
     } else apply();
   }
 
-  /* ═══════════════ voice/ ═══════════════ */
+  /* ═══════════════ voice/ ═══════════════
+     Nagranie głosowe jest zwykłym wpisem: ląduje w `state.entries` jako wpis
+     z załącznikiem audio, a transkrypcja staje się jego treścią. Ta sekcja to
+     tylko dodatkowy podgląd — lista tych wpisów, w których jest nagranie. */
   const recBtn = $("#recBtn");
   const recStatus = $("#recStatus");
   const recTimer = $("#recTimer");
@@ -1645,6 +1649,24 @@
   let transcriptText = "";
 
   $("#transcriptHint").textContent = sttHintText();
+
+  // wpis „głosowy” = wpis z nagraniem w załącznikach; nie trzymamy osobnej kolekcji
+  function firstAudio(e) {
+    return (e.attachments || []).find((a) => a.type === "audio") || null;
+  }
+  function voiceEntries() {
+    return state.entries.filter((e) => firstAudio(e));
+  }
+
+  // podpis wpisu na listach: pierwsza linia tekstu, a przy samym nagraniu — jego długość
+  function entryAudioLabel(e) {
+    const a = firstAudio(e);
+    return a ? tr("entries.file.voice", { time: `${pad(Math.floor(a.duration / 60))}:${pad(a.duration % 60)}` }) : "";
+  }
+  function entryRecentMsg(e) {
+    const first = e.body.split("\n").find((l) => l.trim());
+    return (first && first.trim()) || entryAudioLabel(e) || "";
+  }
 
   function resizeCanvas() {
     canvas.width = canvas.clientWidth * (window.devicePixelRatio || 1);
@@ -1687,6 +1709,13 @@
     if (peaks.length < 4000) peaks.push(max / 128);
 
     rafId = requestAnimationFrame(drawLive);
+  }
+
+  // po każdej zmianie nagrania odświeżamy wszystko, co je pokazuje
+  function refreshVoiceViews() {
+    renderVoice();
+    renderEntries();
+    renderCounts();
   }
 
   recBtn.addEventListener("click", async () => {
@@ -1753,48 +1782,59 @@
         sampled.push(Math.min(1, mx * 1.5));
       }
 
-      const memo = {
-        id: uid(), ts: Date.now(), duration,
+      // nagranie zapisujemy od razu jako wpis — voice/ jest tylko jego podglądem
+      const att = {
+        id: uid(), type: "audio",
         src: URL.createObjectURL(blob),
         path: "",
+        duration,
         peaks: sampled,
         transcript: transcriptText.trim(), // zapas z przeglądarki, do nadpisania
         transcribing: true,
         sttError: "",
       };
-      state.voice.unshift(memo);
+      const entry = {
+        id: uid(), ts: Date.now(),
+        body: att.transcript,
+        tags: [],
+        attachments: [att],
+      };
+      state.entries.unshift(entry);
       recTimer.textContent = "00:00";
       drawIdle();
-      renderVoice();
-      renderCounts();
+      refreshVoiceViews();
 
       // najpierw plik do Storage — bez ścieżki nagranie nie przetrwałoby odświeżenia
       recStatus.textContent = "// zapisywanie nagrania...";
       try {
         const ext = (blob.type.split("/")[1] || "webm").split(";")[0];
-        memo.path = await LOGTXT.uploadMedia(blob, "voice", ext);
+        att.path = await LOGTXT.uploadMedia(blob, "voice", ext);
         saveState();
         toast(tr("voice.saved"));
       } catch (err) {
-        memo.transcribing = false;
-        memo.sttError = err.message;
+        att.transcribing = false;
+        att.sttError = err.message;
         recStatus.textContent = tr("media.err.generic", { msg: err.message });
-        renderVoice();
+        refreshVoiceViews();
         return;
       }
 
       recStatus.textContent = "// transkrypcja...";
       try {
-        memo.transcript = await sttTranscribe(blob);
-        memo.sttError = "";
-        recStatus.textContent = memo.transcript ? "// gotowy" : "// nie rozpoznano mowy";
+        const text = await sttTranscribe(blob);
+        att.transcript = text;
+        att.sttError = "";
+        recStatus.textContent = text ? "// gotowy" : "// nie rozpoznano mowy";
       } catch (err) {
-        memo.sttError = err.message;
+        att.sttError = err.message;
         recStatus.textContent = `// transkrypcja: ${err.message}`;
       } finally {
-        memo.transcribing = false;
+        att.transcribing = false;
+        // treść wpisu idzie za transkrypcją, dopóki nikt jej ręcznie nie zmienił
+        entry.body = att.transcript;
         saveState();
-        renderVoice();
+        refreshVoiceViews();
+        renderDashboard();
       }
     };
 
@@ -1817,82 +1857,132 @@
   }
 
   // blok transkrypcji: tekst (skrót, rozwijany kliknięciem) albo stan w toku/błędu
-  function transcriptBlock(v) {
-    if (v.transcribing)
+  function transcriptBlock(a) {
+    if (a.transcribing)
       return `<div class="voice-transcript vt-status mono">${escapeHtml(tr("media.transcribing"))}<span class="cursor" aria-hidden="true">_</span></div>`;
 
     // każde nagranie da się przepuścić ponownie — także starsze, sprzed przejścia
     // na transkrypcję po stronie serwera
-    const redo = v.path
-      ? `<button type="button" class="vt-redo mono" data-redo="${v.id}">↻ ${escapeHtml(tr(v.transcript ? "voice.transcribeAgain" : "voice.transcribe"))}</button>`
+    const redo = a.path
+      ? `<button type="button" class="vt-redo mono" data-redo="${a.id}">↻ ${escapeHtml(tr(a.transcript ? "voice.transcribeAgain" : "voice.transcribe"))}</button>`
       : "";
 
     // nieudana próba przy istniejącym tekście: stary tekst zostaje, błąd dopisujemy pod nim
-    const errLine = v.sttError
-      ? `<div class="voice-transcript vt-status mono">// ${escapeHtml(v.sttError)}</div>`
+    const errLine = a.sttError
+      ? `<div class="voice-transcript vt-status mono">// ${escapeHtml(a.sttError)}</div>`
       : "";
 
-    if (v.transcript)
-      return `<button type="button" class="voice-transcript vt-toggle" data-id="${v.id}" title="${escapeAttr(tr("voice.toggleTranscript"))}">
-          <span class="vt-text">${escapeHtml(v.transcript)}</span>
+    if (a.transcript)
+      return `<button type="button" class="voice-transcript vt-toggle" data-id="${a.id}" title="${escapeAttr(tr("voice.toggleTranscript"))}">
+          <span class="vt-text">${escapeHtml(a.transcript)}</span>
         </button>${errLine}${redo}`;
     if (errLine) return `${errLine}${redo}`;
 
     return `<div class="voice-transcript vt-status mono">// nie rozpoznano mowy</div>${redo}`;
   }
 
+  // treść wpisu pokazujemy tylko wtedy, gdy odbiega od transkrypcji — inaczej byłaby dwa razy
+  function bodyDiffers(e, a) {
+    const body = (e.body || "").trim();
+    return !!body && body !== (a.transcript || "").trim();
+  }
+
   function renderVoice() {
-    $("#voiceList").innerHTML = state.voice.length
-      ? state.voice.map((v) => `<article class="entry-card voice-card" data-item-id="${v.id}">
+    const list = voiceEntries();
+    $("#voiceList").innerHTML = list.length
+      ? list.map((e) => {
+        const a = firstAudio(e);
+        return `<article class="entry-card voice-card" data-item-id="${e.id}">
           <div class="entry-meta">
-            <span class="entry-hash">${hashOf(v.id)}</span>
-            <span class="entry-file">${fmtDate(v.ts)}_${fmtTime(v.ts).replace(":", "-")}.webm</span>
-            <span class="dim">${pad(Math.floor(v.duration / 60))}:${pad(v.duration % 60)}</span>
-            <button class="entry-del" data-id="${v.id}">rm</button>
+            <span class="entry-hash">${hashOf(e.id)}</span>
+            <span class="entry-file">${fmtDate(e.ts)}_${fmtTime(e.ts).replace(":", "-")}.webm</span>
+            <span class="dim">${pad(Math.floor(a.duration / 60))}:${pad(a.duration % 60)}</span>
+            <span class="flex-spacer"></span>
+            <button type="button" class="vt-open mono" data-open="${e.id}">${escapeHtml(tr("voice.openEntry"))}</button>
+            <button class="entry-del" data-id="${e.id}">rm</button>
           </div>
-          <div class="voice-wave" aria-hidden="true">${asciiWave(v.peaks || [])}</div>
-          <audio controls preload="none" src="${escapeAttr(v.src || "")}"></audio>
-          ${transcriptBlock(v)}
-        </article>`).join("")
+          <div class="voice-wave" aria-hidden="true">${asciiWave(a.peaks || [])}</div>
+          <audio controls preload="none" src="${escapeAttr(a.src || "")}"></audio>
+          ${bodyDiffers(e, a) ? `<div class="entry-body voice-body">${escapeHtml(e.body)}</div>` : ""}
+          ${transcriptBlock(a)}
+        </article>`;
+      }).join("")
       : `<div class="empty-state">${escapeHtml(tr("voice.empty"))}</div>`;
 
     $$("#voiceList .vt-toggle").forEach((el) =>
       el.addEventListener("click", () => el.classList.toggle("expanded"))
     );
 
+    // nagranie to wpis — stąd skok prosto do niego w entries/
+    $$("#voiceList .vt-open").forEach((btn) =>
+      btn.addEventListener("click", () => openItem("entry", btn.dataset.open))
+    );
+
     $$("#voiceList .vt-redo").forEach((btn) =>
       btn.addEventListener("click", async () => {
-        const v = state.voice.find((x) => x.id === btn.dataset.redo);
-        if (!v || v.transcribing) return;
-        v.transcribing = true;
+        const entry = list.find((e) => firstAudio(e) && firstAudio(e).id === btn.dataset.redo);
+        const a = entry && firstAudio(entry);
+        if (!a || a.transcribing) return;
+        const before = a.transcript;
+        a.transcribing = true;
         renderVoice();
         try {
-          const audio = await (await fetch(v.src)).blob();
-          v.transcript = await sttTranscribe(audio);
-          v.sttError = "";
-          toast(tr(v.transcript ? "voice.transcriptReady" : "voice.noSpeech"));
+          const audio = await (await fetch(a.src)).blob();
+          a.transcript = await sttTranscribe(audio);
+          a.sttError = "";
+          // treść wpisu podmieniamy tylko wtedy, gdy nikt jej ręcznie nie zmienił
+          if (entry.body.trim() === (before || "").trim()) entry.body = a.transcript;
+          toast(tr(a.transcript ? "voice.transcriptReady" : "voice.noSpeech"));
         } catch (err) {
-          v.sttError = err.message;
+          a.sttError = err.message;
           toast(`⚠ ${err.message}`);
         } finally {
-          v.transcribing = false;
+          a.transcribing = false;
           saveState();
-          renderVoice();
+          refreshVoiceViews();
         }
       })
     );
 
     $$("#voiceList .entry-del").forEach((btn) =>
       btn.addEventListener("click", () => {
-        const v = state.voice.find((x) => x.id === btn.dataset.id);
-        if (!v) return;
-        const label = `${fmtDate(v.ts)}_${fmtTime(v.ts).replace(":", "-")}.webm`;
-        deleteWithUndo("voice", v.id, label, () => {
-          renderVoice();
-          renderCounts();
+        const e = list.find((x) => x.id === btn.dataset.id);
+        if (!e) return;
+        const label = `${fmtDate(e.ts)}_${fmtTime(e.ts).replace(":", "-")}.webm`;
+        deleteWithUndo("entries", e.id, label, () => {
+          if (activeEntryId === e.id) activeEntryId = null;
+          refreshVoiceViews();
         });
       })
     );
+  }
+
+  /* ── stare nagrania z osobnej kolekcji → wpisy ──
+     voice_notes zostaje w bazie tylko po to, żeby dało się je raz przenieść;
+     po migracji kolekcja jest pusta i synchronizacja kasuje tamte wiersze. */
+  function migrateVoiceNotes() {
+    if (!state.voice || !state.voice.length) return;
+    for (const v of state.voice) {
+      state.entries.push({
+        id: v.id,
+        ts: v.ts,
+        body: v.transcript || "",
+        tags: [],
+        attachments: [{
+          id: uid(), type: "audio",
+          src: v.src || "",
+          path: v.path || "",
+          duration: v.duration || 0,
+          peaks: v.peaks || [],
+          transcript: v.transcript || "",
+          transcribing: false,
+          sttError: v.sttError || "",
+        }],
+      });
+    }
+    state.voice = [];
+    state.entries.sort((a, b) => b.ts - a.ts);
+    saveState();
   }
 
   /* ═══════════════ dashboard / welcome ═══════════════ */
@@ -1967,7 +2057,7 @@
     const namePart = name ? `, ${escapeHtml(name)}` : "";
     $("#helloTitle").innerHTML = `${title}${namePart}<span class="cursor" aria-hidden="true">_</span>`;
 
-    const all = [...state.entries, ...state.moods, ...state.notes, ...state.tasks, ...state.voice];
+    const all = [...state.entries, ...state.moods, ...state.notes, ...state.tasks];
     const todayK = dayKey(Date.now());
     const todayCount = all.filter((x) => dayKey(x.ts) === todayK).length;
 
@@ -2035,7 +2125,8 @@
     const moodTrend = state.moods.slice(0, 7).reverse();
     const lastNote = state.notes.slice().sort((a, b) => (b.updated || b.ts) - (a.updated || a.ts))[0];
     const doneTasks = state.tasks.filter((t) => t.status === "done").length;
-    const lastVoice = state.voice[0];
+    const voiceList = voiceEntries();
+    const lastVoice = voiceList[0] ? firstAudio(voiceList[0]) : null;
 
     const spark = moodTrend.length
       ? `<span class="mood-spark" aria-hidden="true">${moodTrend
@@ -2066,7 +2157,7 @@
       </button>
       <button class="tile" data-tile="voice">
         <span class="tile-head"><span>voice/</span><span class="tile-arrow">→</span></span>
-        <span class="tile-stat">${state.voice.length} <span class="tile-unit">${escapeHtml(tr(state.voice.length === 1 ? "dash.tile.recOne" : "dash.tile.recMany"))}</span></span>
+        <span class="tile-stat">${voiceList.length} <span class="tile-unit">${escapeHtml(tr(voiceList.length === 1 ? "dash.tile.recOne" : "dash.tile.recMany"))}</span></span>
         <span class="tile-sub">${lastVoice ? escapeHtml(tr("dash.tile.lastVoice", { time: `${pad(Math.floor(lastVoice.duration / 60))}:${pad(lastVoice.duration % 60)}` })) : escapeHtml(tr("dash.tile.silence"))}</span>
       </button>`;
 
@@ -2085,11 +2176,10 @@
 
     /* ── ostatnia aktywność ── */
     const items = [
-      ...state.entries.map((e) => ({ ts: e.ts, kind: "entry", id: e.id, msg: e.body.split("\n")[0] })),
+      ...state.entries.map((e) => ({ ts: e.ts, kind: "entry", id: e.id, msg: entryRecentMsg(e) })),
       ...state.moods.map((m) => ({ ts: m.ts, kind: "mood", id: m.id, msg: `${tr("dash.mood.item", { level: m.level })}${m.note ? " — " + m.note : ""}` })),
       ...state.notes.map((n) => ({ ts: n.updated || n.ts, kind: "note", id: n.id, msg: n.title + ".md" })),
       ...state.tasks.map((t) => ({ ts: t.ts, kind: "task", id: t.id, msg: `${STATUS_MARK[t.status]} ${t.text}` })),
-      ...state.voice.map((v) => ({ ts: v.ts, kind: "voice", id: v.id, msg: v.transcript ? v.transcript.slice(0, 80) : `nagranie ${v.duration}s` })),
     ].sort((a, b) => b.ts - a.ts).slice(0, 6);
 
     $("#recentList").innerHTML = items.length
@@ -2351,6 +2441,7 @@
     setStorageStatus("app.sync.loading");
     try {
       state = await LOGTXT.loadAll();
+      migrateVoiceNotes(); // stare nagrania z voice_notes wchodzą do entries
       setStorageStatus("app.sync.ok");
     } catch (err) {
       setStorageStatus("app.sync.error", true);

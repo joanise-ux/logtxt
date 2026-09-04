@@ -140,6 +140,7 @@
       "entries.backLabel": "lista",
       "entries.pickHint": "// wybierz wpis z listy obok albo zacznij nowy",
       "entries.file.noText": "// bez tekstu",
+      "entries.file.voice": "nagranie {time}",
       "entries.day.today": "dziś",
       "entries.day.yesterday": "wczoraj",
       "entries.ph.body": "$ napisz coś...",
@@ -215,11 +216,12 @@
       "tasks.changeStatus": "Zmień status",
 
       /* ── voice ── */
-      "voice.sub": "// notatki głosowe — nagraj i wróć do nich później",
+      "voice.sub": "// notatki głosowe — każde nagranie zapisuje się jako wpis w entries/",
       "voice.ready": "// gotowy",
       "voice.record": "record",
       "voice.saved": "Zapisano ✓ voice memo committed",
       "voice.empty": "// brak nagrań — naciśnij record i powiedz, co myślisz",
+      "voice.openEntry": "→ wpis",
       "voice.transcribe": "transkrybuj",
       "voice.transcribeAgain": "transkrybuj ponownie",
       "voice.transcriptReady": "Transkrypcja gotowa ✓",
@@ -379,6 +381,7 @@
       "entries.backLabel": "list",
       "entries.pickHint": "// pick an entry from the list, or start a new one",
       "entries.file.noText": "// no text",
+      "entries.file.voice": "recording {time}",
       "entries.day.today": "today",
       "entries.day.yesterday": "yesterday",
       "entries.ph.body": "$ write something...",
@@ -454,11 +457,12 @@
       "tasks.changeStatus": "Change status",
 
       /* ── voice ── */
-      "voice.sub": "// voice memos — record and come back to them later",
+      "voice.sub": "// voice memos — every recording is saved as an entry in entries/",
       "voice.ready": "// ready",
       "voice.record": "record",
       "voice.saved": "Saved ✓ voice memo committed",
       "voice.empty": "// no recordings — hit record and say what's on your mind",
+      "voice.openEntry": "→ entry",
       "voice.transcribe": "transcribe",
       "voice.transcribeAgain": "transcribe again",
       "voice.transcriptReady": "Transcript ready ✓",
