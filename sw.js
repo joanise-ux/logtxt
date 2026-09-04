@@ -11,7 +11,7 @@
    na starych plikach do czasu zamknięcia wszystkich okien apki.
    ═══════════════════════════════════════════════════════════════ */
 
-const VERSION = "logtxt-v8";
+const VERSION = "logtxt-v9";
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 

@@ -1988,6 +1988,22 @@ body.lightbox-open { overflow: hidden; }
     grid-template-columns: repeat(2, 1fr);
     gap: 6px;
   }
+  /* ─ instrukcja "dodaj do ekranu głównego" ─ */
+  .install-lead {
+    margin: 0 0 10px;
+    padding: 0 6px;
+    font-size: 12px;
+    color: var(--text-faint);
+  }
+  .install-steps {
+    margin: 0 0 12px;
+    padding: 0 6px 0 26px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text-dim);
+  }
+  .install-steps strong { color: var(--text); font-weight: 500; }
+  .install-steps li::marker { color: var(--accent); }
   /* nieparzysta liczba kafelków — ostatni dobija do pełnej szerokości */
   .bottom-sheet-list > :last-child:nth-child(odd) { grid-column: span 2; }
   .bottom-sheet-item {

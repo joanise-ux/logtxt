@@ -34,6 +34,28 @@ python3 -m http.server 8000
 
 Nagrywanie głosu wymaga `https://` albo `localhost`, więc otwarcie pliku przez `file://` nie wystarczy.
 
+## Instalacja na telefonie
+
+Apka jest PWA — instaluje się prosto z przeglądarki, bez sklepu. W sekcji
+`ls settings/` (profil na dole ekranu) jest pozycja `install app`:
+
+- **Android / Chrome** — otwiera systemowy dialog instalacji,
+- **iPhone / Safari** — pokazuje kroki: Udostępnij → *Do ekranu początkowego* → *Dodaj*
+  (Safari nie ma dialogu instalacji, więc tam zawsze idzie się przez to menu).
+
+Po instalacji apka startuje bez paska adresu, działa offline (powłoka z cache,
+patrz [`sw.js`](sw.js)) i pozycja `install app` znika.
+
+Nagłówki w [`vercel.json`](vercel.json) pilnują, żeby CDN nie serwował starego
+`sw.js` — bez tego zainstalowane apki potrafią zostać na poprzedniej wersji.
+**Przy każdym wdrożeniu podbij `VERSION` w `sw.js`.**
+
+Prawdziwy plik do instalacji (APK w Google Play, apka w App Store) to osobny
+krok: te same pliki opakowuje się [Capacitorem](https://capacitorjs.com)
+(`npx cap add android` / `npx cap add ios`) albo — dla samego Androida —
+[Bubblewrapem](https://github.com/GoogleChromeLabs/bubblewrap) jako TWA.
+Nic z tego nie wymaga przepisywania aplikacji.
+
 ## Transkrypcja
 
 Po zakończeniu nagrania plik trafia do funkcji `transcribe` po stronie Supabase, a ta woła **Groq Whisper** kluczem trzymanym w sekretach projektu. Użytkownik nie konfiguruje niczego i nigdy nie widzi żadnego klucza.
