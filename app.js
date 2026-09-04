@@ -303,16 +303,18 @@
   const bottomProfileSheet = $("#bottomNavSheet");
   const bottomAddBtn = $("#bottomNavAdd");
   const bottomProfileBtn = $("#bottomNavProfile");
+  // sheet instalacji otwiera się z listy ustawień, więc nie ma własnego kafelka
   const SHEETS = [
     { sheet: bottomAddSheet, btn: bottomAddBtn },
     { sheet: bottomProfileSheet, btn: bottomProfileBtn },
+    { sheet: $("#installHelpSheet"), btn: null },
   ];
 
   function closeBottomSheet() {
     SHEETS.forEach(({ sheet, btn }) => {
       sheet.classList.remove("show");
       sheet.setAttribute("aria-hidden", "true");
-      btn.setAttribute("aria-expanded", "false");
+      if (btn) btn.setAttribute("aria-expanded", "false");
     });
     bottomSheetScrim.classList.remove("show");
   }
@@ -322,10 +324,11 @@
     if (!entry) return;
     entry.sheet.classList.add("show");
     entry.sheet.setAttribute("aria-hidden", "false");
-    entry.btn.setAttribute("aria-expanded", "true");
+    if (entry.btn) entry.btn.setAttribute("aria-expanded", "true");
     bottomSheetScrim.classList.add("show");
   }
   SHEETS.forEach(({ sheet, btn }) => {
+    if (!btn) return;
     btn.addEventListener("click", () => {
       if (sheet.classList.contains("show")) closeBottomSheet();
       else openBottomSheet(sheet);
@@ -2641,5 +2644,73 @@
   /* ── PWA: rejestracja service workera (offline + instalacja na telefonie) ── */
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
+  }
+
+  /* ── PWA: instalacja na ekranie głównym ──────────────────────────────
+     Chrome daje zdarzenie `beforeinstallprompt` i natywny dialog — łapiemy je
+     i odpalamy dopiero po kliknięciu użytkownika. Safari (iOS) nie ma niczego
+     takiego, więc tam pokazujemy instrukcję "Udostępnij → Do ekranu
+     początkowego". W apce już zainstalowanej nie pokazujemy nic.
+     ─────────────────────────────────────────────────────────────────── */
+  {
+    let deferredPrompt = null;
+    const installEntries = [$("#installBtn"), $("#bottomInstallMirror")].filter(Boolean);
+    const installSheet = $("#installHelpSheet");
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+      || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+    const isStandalone = () =>
+      window.matchMedia("(display-mode: standalone)").matches
+      || navigator.standalone === true;
+
+    function showInstallEntries(show) {
+      installEntries.forEach((el) => { el.hidden = !show; });
+    }
+
+    function openInstallHelp() {
+      // bottom sheety żyją tylko na wąskich ekranach — na desktopie zostaje toast
+      if (getComputedStyle(installSheet).display === "none") {
+        toast(tr("app.install.manual"));
+        return;
+      }
+      // kroki dla Safari różnią się od menu w pozostałych przeglądarkach
+      $("#installStepsIos").hidden = !isIOS;
+      $("#installStepsOther").hidden = isIOS;
+      openBottomSheet(installSheet);
+    }
+
+    async function requestInstall() {
+      if (!deferredPrompt) { openInstallHelp(); return; }
+      const prompt = deferredPrompt;
+      deferredPrompt = null;          // zdarzenia nie da się użyć drugi raz
+      prompt.prompt();
+      const { outcome } = await prompt.userChoice;
+      if (outcome === "accepted") showInstallEntries(false);
+      else showInstallEntries(true); // odmowa: wejście zostaje, instrukcja w zapasie
+    }
+
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      showInstallEntries(true);
+    });
+
+    window.addEventListener("appinstalled", () => {
+      deferredPrompt = null;
+      showInstallEntries(false);
+      closeBottomSheet();
+      toast(tr("app.install.done"));
+    });
+
+    installEntries.forEach((el) =>
+      el.addEventListener("click", () => {
+        closeBottomSheet();
+        requestInstall();
+      })
+    );
+    $("#installHelpClose").addEventListener("click", closeBottomSheet);
+
+    // na iOS zdarzenie nigdy nie przyjdzie — wejście pokazujemy od razu
+    if (!isStandalone() && isIOS) showInstallEntries(true);
   }
 })();
