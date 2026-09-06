@@ -68,6 +68,8 @@ Limit pliku po stronie API to 25 MB. Endpoint Groqa jest zgodny z OpenAI, więc 
 
 Wszystko żyje w **Supabase**: wpisy w Postgresie, nagrania i zdjęcia w prywatnym magazynie plików, konta w Supabase Auth. Dziennik jest więc dostępny z każdego urządzenia po zalogowaniu, a limit `localStorage` (~5 MB), o który obijały się dłuższe nagrania, przestał obowiązywać.
 
+Zdjęcia są kompresowane jeszcze w przeglądarce, przed wysyłką: dłuższy bok skalowany do 2000 px i przepakowanie do WebP. Kadr z telefonu (3–5 MB) schodzi zwykle do kilkuset kilobajtów, więc magazyn plików starcza na wielokrotnie więcej zdjęć. Gdy przeglądarka nie umie tego zrobić, wysyłany jest oryginał.
+
 Reguły RLS w bazie pilnują, że zalogowana osoba widzi i zmienia **wyłącznie swoje** wiersze — nie zależy to od poprawności kodu w przeglądarce. Lokalnie zostaje tylko wybrany motyw i zakres wykresu nastroju.
 
 Zapis jest optymistyczny: ekran odświeża się natychmiast, a wysyłka leci w tle. Pasek boczny pokazuje stan (`sync: ok` / `sync: błąd`); nieudany zapis jest ponawiany automatycznie i sygnalizowany komunikatem.
