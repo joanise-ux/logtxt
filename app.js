@@ -447,6 +447,48 @@
     });
   }
 
+  /* ── kompresja zdjęć przed wysyłką ──
+     Zdjęcie prosto z telefonu to 3–5 MB, a Storage jest limitowany. Skalujemy
+     dłuższy bok do 2000 px i przepakowujemy do WebP — w podglądzie różnicy nie
+     widać, a rozmiar spada zwykle kilkukrotnie. Wszystko dzieje się w
+     przeglądarce; gdy cokolwiek nie wyjdzie, leci oryginał. */
+  const IMG_MAX_EDGE = 2000;
+  const IMG_QUALITY = 0.82;
+  const IMG_SKIP_BELOW = 200 * 1024; // na małych plikach nie ma czego oszczędzać
+
+  function canvasToBlob(canvas, type, quality) {
+    return new Promise((res) => canvas.toBlob(res, type, quality));
+  }
+
+  async function compressImage(blob) {
+    // GIF straciłby animację, SVG jest i tak lekki i nie jest rastrem
+    if (/^image\/(gif|svg)/.test(blob.type)) return blob;
+    if (blob.size < IMG_SKIP_BELOW) return blob;
+    try {
+      // from-image: bez tego zdjęcia z telefonu wracają obrócone (EXIF)
+      const bmp = await createImageBitmap(blob, { imageOrientation: "from-image" });
+      const scale = Math.min(1, IMG_MAX_EDGE / Math.max(bmp.width, bmp.height));
+      const w = Math.max(1, Math.round(bmp.width * scale));
+      const h = Math.max(1, Math.round(bmp.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext("2d").drawImage(bmp, 0, 0, w, h);
+      if (bmp.close) bmp.close();
+      // starsze Safari nie koduje webp i po cichu oddaje PNG — stąd sprawdzenie rozmiaru
+      const out = await canvasToBlob(canvas, "image/webp", IMG_QUALITY);
+      if (!out || out.size >= blob.size) return blob;
+      return out;
+    } catch {
+      return blob; // brak createImageBitmap/toBlob → lepiej oryginał niż nic
+    }
+  }
+
+  // rozszerzenie bierzemy z typu tego pliku, który faktycznie leci do Storage
+  function extOfBlob(blob, fallback = "png") {
+    return ((blob.type || "").split("/")[1] || fallback).split(";")[0];
+  }
+
   async function fetchUrlAsDataUrl(url) {
     const resp = await fetch(url, { mode: "cors" });
     if (!resp.ok) throw new Error("fetch failed");
@@ -618,11 +660,12 @@
       if (!file || !file.type.startsWith("image/")) { setHint(tr("media.err.notImage")); return; }
       const id = uid();
       push({ id, type: "image", src: "", caption: "", loading: true });
-      setHint(tr("media.uploading"), true);
+      setHint(tr("media.compressing"), true);
       try {
-        const ext = (file.type.split("/")[1] || "png").split(";")[0];
-        const path = await LOGTXT.uploadMedia(file, "photo", ext);
-        update(id, { src: URL.createObjectURL(file), path, loading: false });
+        const blob = await compressImage(file);
+        setHint(tr("media.uploading"), true);
+        const path = await LOGTXT.uploadMedia(blob, "photo", extOfBlob(blob));
+        update(id, { src: URL.createObjectURL(blob), path, loading: false });
         onChange && onChange();
         setHint(tr("media.done"));
       } catch (err) {
@@ -639,9 +682,8 @@
       try {
         // pobieramy do siebie, żeby zdjęcie nie zniknęło, gdy zniknie źródłowy link
         const dataUrl = await fetchUrlAsDataUrl(url);
-        const blob = await (await fetch(dataUrl)).blob();
-        const ext = (blob.type.split("/")[1] || "png").split(";")[0];
-        const path = await LOGTXT.uploadMedia(blob, "photo", ext);
+        const blob = await compressImage(await (await fetch(dataUrl)).blob());
+        const path = await LOGTXT.uploadMedia(blob, "photo", extOfBlob(blob));
         update(id, { src: URL.createObjectURL(blob), path, loading: false });
       } catch {
         // CORS albo nie-obraz — zostaje sam link, przeglądarka pobierze go przy renderze
