@@ -9,6 +9,7 @@ nagrania w Storage, transkrypcja przez Edge Function z kluczem po stronie serwer
 |------|------|
 | `migrations/0001_init.sql` | tabele `profiles / entries / moods / notes / tasks / voice_notes`, indeksy, RLS, trigger zakładający profil przy rejestracji |
 | `migrations/0002_storage.sql` | prywatny bucket `media` na audio i zdjęcia + polityki dostępu po `user_id` |
+| `migrations/20260930120000_motto_favorites.sql` | tabela `motto_favorites` (ulubione motta dnia) + RLS |
 | `functions/transcribe/index.ts` | Edge Function wołająca Groq Whisper; klucz w sekrecie `GROQ_API_KEY`, nie w przeglądarce |
 
 ## Model danych
@@ -21,6 +22,7 @@ z `localStorage`:
 - `state.moods` → `moods` (jeden wpis na dzień wymuszony przez `unique (user_id, day)`)
 - `state.notes` → `notes` (`updated_at` odświeżane triggerem w bazie)
 - `state.tasks` → `tasks` (`status` pilnowany przez `check`)
+- `state.mottoFavs` → `motto_favorites` (numer motta dnia; `unique (user_id, motto)`). Tabela jest opcjonalna: dopóki migracja nie jest wgrana, aplikacja działa dalej, tylko ulubione motta nie są zapisywane
 - `state.voice` → `voice_notes` — tabela została tylko dla starych nagrań: przy pierwszym wczytaniu aplikacja przenosi je do `entries` (jako załącznik audio) i czyści kolekcję. Nowe nagrania od razu lądują w `entries` + plik audio w buckecie `media`
 
 Nagrania przestają być base64 w `localStorage`, więc znika limit ~5 MB i komunikat

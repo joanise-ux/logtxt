@@ -17,7 +17,7 @@
   const LEGACY_STATE_KEY = "logtxt.state.v1"; // dane sprzed przejścia na konto
   const LEGACY_DONE_KEY = "logtxt.legacyImport.done"; // pytanie o import zadajemy raz
 
-  const defaultState = { entries: [], moods: [], notes: [], tasks: [], voice: [] };
+  const defaultState = { entries: [], moods: [], notes: [], tasks: [], voice: [], mottoFavs: [] };
 
   // migracja starych rekordów: attachments jest domyślnie pustą listą
   function ensureAttachments(item) {
@@ -2197,29 +2197,31 @@
     return `${k.slice(5)} ${fmtTime(ts)}`;
   }
 
-  /* ── ulubione motta: numery motta (klucze i18n), więc tłumaczą się razem z językiem.
-     Trzymane lokalnie w przeglądarce — to drobna preferencja, nie wpis w dzienniku. ── */
-  const MOTTO_FAVS_KEY = "logtxt.mottoFavs";
+  /* ── ulubione motta: zapisane na koncie (tabela motto_favorites), więc wspólne
+     dla wszystkich urządzeń. Trzymamy numer motta (klucz i18n), dlatego tekst
+     tłumaczy się razem z językiem. ── */
   let todayMotto = 1;
   let mottoFavsOpen = false;
-  let mottoFavs = [];
-  try {
-    const raw = JSON.parse(localStorage.getItem(MOTTO_FAVS_KEY) || "[]");
-    if (Array.isArray(raw)) mottoFavs = raw.filter((n) => Number.isInteger(n) && n >= 1 && n <= MOTTO_COUNT);
-  } catch (e) { /* uszkodzony wpis — zaczynamy od pustej listy */ }
 
-  function saveMottoFavs() {
-    try { localStorage.setItem(MOTTO_FAVS_KEY, JSON.stringify(mottoFavs)); } catch (e) { /* brak miejsca / tryb prywatny */ }
-  }
+  // numery ulubionych od najstarszego dodanego; spoza listy mott pomijamy
+  const favMottos = () =>
+    [...(state.mottoFavs || [])]
+      .sort((a, b) => a.ts - b.ts)
+      .map((f) => f.motto)
+      .filter((n) => n >= 1 && n <= MOTTO_COUNT);
 
   function toggleMottoFav(n) {
-    mottoFavs = mottoFavs.includes(n) ? mottoFavs.filter((x) => x !== n) : [...mottoFavs, n];
-    if (!mottoFavs.length) mottoFavsOpen = false;
-    saveMottoFavs();
+    const list = state.mottoFavs || (state.mottoFavs = []);
+    const i = list.findIndex((f) => f.motto === n);
+    if (i >= 0) list.splice(i, 1);
+    else list.push({ id: uid(), motto: n, ts: Date.now() });
+    if (!favMottos().length) mottoFavsOpen = false;
+    saveState();
     renderMottoFavs();
   }
 
   function renderMottoFavs() {
+    const mottoFavs = favMottos();
     const isFav = mottoFavs.includes(todayMotto);
     const favBtn = $("#mottoFav");
     favBtn.textContent = isFav ? "★" : "☆";
