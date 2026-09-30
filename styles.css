@@ -47,7 +47,7 @@
   --st-done: #4ade80;         /* zieleń — zrobione */
   --st-done-bg: rgba(74, 222, 128, 0.12);
   --scrim: rgba(6, 8, 10, 0.6);
-  /* karta kontrastowa (motto / cele) — ciemna zieleń terminala */
+  /* karta kontrastowa (zadania) — ciemna zieleń terminala */
   --surface-contrast: #10241b;
   --surface-contrast-border: #1d3d2c;
   --surface-contrast-text: #dcf5e6;
@@ -87,7 +87,7 @@
   --st-done: #6d8a4a;         /* sage leaf, przyciemniony */
   --st-done-bg: rgba(168, 181, 138, 0.30);
   --scrim: rgba(45, 58, 71, 0.38);
-  /* karta kontrastowa (motto / cele) — midnight lagoon */
+  /* karta kontrastowa (zadania) — midnight lagoon */
   --surface-contrast: #2d3a47;
   --surface-contrast-border: #3b4b5a;
   --surface-contrast-text: #fff7e6;
@@ -468,8 +468,8 @@ textarea:focus, input:focus {
 }
 
 /* ═══ dashboard: siatka bento ═══
-   układ „kafelkowy": powitanie + szybkie akcje w rzędzie,
-   niżej dwie kolumny — log aktywności po lewej, motto/sekcje/zadania po prawej */
+   układ „kafelkowy": powitanie (z mottem) + otwarte zadania w rzędzie,
+   niżej dwie kolumny — log aktywności po lewej, szybkie akcje i nastrój po prawej */
 .dash-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
@@ -571,24 +571,52 @@ textarea:focus, input:focus {
   color: var(--text-faint);
 }
 
-/* ── motto dnia: karta kontrastowa ── */
+/* ── motto dnia: cytat pod powitaniem ── */
 .dash-motto {
-  background: var(--surface-contrast);
-  border-color: var(--surface-contrast-border);
-  color: var(--surface-contrast-text);
-  display: flex; flex-direction: column; gap: 10px;
-  padding: 22px 20px;
-  text-align: center;
+  display: flex; flex-direction: column; gap: 4px;
+  margin-top: 14px;
+  padding-left: 12px;
+  border-left: 2px solid var(--accent);
 }
-.motto-label { font-size: 11.5px; color: var(--surface-contrast-dim); }
+.motto-label { font-size: 11.5px; color: var(--text-faint); }
+.motto-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.motto-fav {
+  font-size: 15px; line-height: 1;
+  padding: 2px 4px;
+  color: var(--text-faint);
+  border-radius: var(--radius-sm);
+  transition: color 0.15s var(--ease), transform 0.15s var(--ease);
+}
+.motto-fav:hover, .motto-fav:focus-visible { color: var(--accent); transform: scale(1.15); outline: none; }
+.motto-fav[aria-pressed="true"] { color: var(--accent); }
+.motto-favs-toggle { font-size: 11.5px; }
+.motto-favs {
+  list-style: none;
+  display: flex; flex-direction: column; gap: 2px;
+  margin-top: 6px;
+}
+.motto-favs li {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 13.5px; font-style: italic;
+  color: var(--text-dim);
+}
+.motto-favs li::before { content: "★"; font-style: normal; font-size: 11px; color: var(--accent); }
+.motto-favs .motto-unfav {
+  margin-left: auto;
+  font-style: normal; font-size: 12px;
+  padding: 0 6px;
+  color: var(--text-faint);
+  border-radius: var(--radius-sm);
+}
+.motto-favs .motto-unfav:hover, .motto-favs .motto-unfav:focus-visible { color: var(--accent); outline: none; }
 .motto-text {
   font-family: var(--font-sans);
-  font-size: 15.5px;
+  font-size: 15px;
   font-style: italic;
   line-height: 1.5;
-  color: var(--surface-contrast-text);
+  color: var(--text);
 }
-.motto-mark { color: var(--accent); font-size: 13px; }
 
 /* ── kafelki sekcji ── */
 .dash-tiles {
@@ -1811,7 +1839,6 @@ body.lightbox-open { overflow: hidden; }
   /* kolumny znikają — karty wchodzą wprost do siatki, żeby dało się je przestawić */
   .dash-col { display: contents; }
   .dash-actions, .dash-mood { order: 0; }
-  .dash-motto { order: 1; }
   .recent-panel { order: 2; }
   .pinned-panel { order: 3; }
   .dash-tiles { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }

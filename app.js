@@ -17,7 +17,7 @@
   const LEGACY_STATE_KEY = "logtxt.state.v1"; // dane sprzed przejścia na konto
   const LEGACY_DONE_KEY = "logtxt.legacyImport.done"; // pytanie o import zadajemy raz
 
-  const defaultState = { entries: [], moods: [], notes: [], tasks: [], voice: [] };
+  const defaultState = { entries: [], moods: [], notes: [], tasks: [], voice: [], mottoFavs: [] };
 
   // migracja starych rekordów: attachments jest domyślnie pustą listą
   function ensureAttachments(item) {
@@ -2197,6 +2197,61 @@
     return `${k.slice(5)} ${fmtTime(ts)}`;
   }
 
+  /* ── ulubione motta: zapisane na koncie (tabela motto_favorites), więc wspólne
+     dla wszystkich urządzeń. Trzymamy numer motta (klucz i18n), dlatego tekst
+     tłumaczy się razem z językiem. ── */
+  let todayMotto = 1;
+  let mottoFavsOpen = false;
+
+  // numery ulubionych od najstarszego dodanego; spoza listy mott pomijamy
+  const favMottos = () =>
+    [...(state.mottoFavs || [])]
+      .sort((a, b) => a.ts - b.ts)
+      .map((f) => f.motto)
+      .filter((n) => n >= 1 && n <= MOTTO_COUNT);
+
+  function toggleMottoFav(n) {
+    const list = state.mottoFavs || (state.mottoFavs = []);
+    const i = list.findIndex((f) => f.motto === n);
+    if (i >= 0) list.splice(i, 1);
+    else list.push({ id: uid(), motto: n, ts: Date.now() });
+    if (!favMottos().length) mottoFavsOpen = false;
+    saveState();
+    renderMottoFavs();
+  }
+
+  function renderMottoFavs() {
+    const mottoFavs = favMottos();
+    const isFav = mottoFavs.includes(todayMotto);
+    const favBtn = $("#mottoFav");
+    favBtn.textContent = isFav ? "★" : "☆";
+    favBtn.setAttribute("aria-pressed", String(isFav));
+    const favLabel = tr(isFav ? "dash.motto.unfav" : "dash.motto.fav");
+    favBtn.setAttribute("aria-label", favLabel);
+    favBtn.title = favLabel;
+
+    const toggle = $("#mottoFavsToggle");
+    toggle.hidden = !mottoFavs.length;
+    toggle.textContent = tr(mottoFavsOpen ? "dash.motto.favsHide" : "dash.motto.favs", { n: mottoFavs.length });
+    toggle.setAttribute("aria-expanded", String(mottoFavsOpen));
+
+    const list = $("#mottoFavs");
+    list.hidden = !mottoFavsOpen || !mottoFavs.length;
+    list.innerHTML = mottoFavs.map((n) => `<li>
+        <span>${escapeHtml(tr(`dash.motto.${n}`))}</span>
+        <button type="button" class="motto-unfav" data-unfav="${n}" aria-label="${escapeAttr(tr("dash.motto.unfav"))}" title="${escapeAttr(tr("dash.motto.unfav"))}">×</button>
+      </li>`).join("");
+    $$("#mottoFavs .motto-unfav").forEach((btn) =>
+      btn.addEventListener("click", () => toggleMottoFav(Number(btn.dataset.unfav)))
+    );
+  }
+
+  $("#mottoFav").addEventListener("click", () => toggleMottoFav(todayMotto));
+  $("#mottoFavsToggle").addEventListener("click", () => {
+    mottoFavsOpen = !mottoFavsOpen;
+    renderMottoFavs();
+  });
+
   function renderDashboard() {
     const now = new Date();
     const h = now.getHours();
@@ -2230,7 +2285,9 @@
     const mottoEl = $("#mottoText");
     if (mottoEl) {
       const dayIndex = Math.floor(now.getTime() / 86400000);
-      mottoEl.textContent = tr(`dash.motto.${(dayIndex % MOTTO_COUNT) + 1}`);
+      todayMotto = (dayIndex % MOTTO_COUNT) + 1;
+      mottoEl.textContent = tr(`dash.motto.${todayMotto}`);
+      renderMottoFavs();
     }
 
     /* ── kafelki sekcji ── */

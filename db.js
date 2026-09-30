@@ -164,6 +164,21 @@ window.LOGTXT = (() => {
         transcribing: false,
       }),
     },
+
+    // ulubione motta dnia — sam numer motta (klucz i18n), jeden raz na konto.
+    // `optional`: brak tabeli (migracja jeszcze niewgrana) nie blokuje reszty dziennika
+    mottoFavs: {
+      table: "motto_favorites",
+      order: "created_at",
+      optional: true,
+      toRow: (f) => ({
+        id: f.id,
+        user_id: userId,
+        motto: f.motto,
+        created_at: iso(f.ts),
+      }),
+      fromRow: (r) => ({ id: r.id, ts: ms(r.created_at), motto: r.motto }),
+    },
   };
 
   const COLLECTIONS = Object.keys(MAP);
@@ -174,6 +189,7 @@ window.LOGTXT = (() => {
      aktualizuje snapshotu — więc następna próba powtórzy te same zmiany. */
 
   const snapshot = {}; // kolekcja → Map(id → JSON wiersza)
+  const unavailable = new Set(); // opcjonalne kolekcje, których tabela nie odpowiada
   let queue = Promise.resolve();
   let pendingTimer = null;
   let retryTimer = null;
@@ -213,6 +229,7 @@ window.LOGTXT = (() => {
     onStatus("app.sync.pending");
     const failed = [];
     for (const coll of COLLECTIONS) {
+      if (unavailable.has(coll)) continue;
       try {
         await syncCollection(state, coll);
       } catch (err) {
@@ -242,12 +259,19 @@ window.LOGTXT = (() => {
 
   /* ── wczytanie wszystkiego po zalogowaniu ── */
   async function loadAll() {
-    const state = { entries: [], moods: [], notes: [], tasks: [], voice: [] };
+    const state = { entries: [], moods: [], notes: [], tasks: [], voice: [], mottoFavs: [] };
     if (!sb || !userId) return state;
 
+    unavailable.clear();
     for (const coll of COLLECTIONS) {
-      const { table, order } = MAP[coll];
+      const { table, order, optional } = MAP[coll];
       const { data, error } = await sb.from(table).select("*").order(order, { ascending: false });
+      if (error && optional) {
+        // dodatek bez tabeli: nie wczytujemy i nie wysyłamy, reszta działa normalnie
+        console.warn(`[logtxt] pominięto ${coll}: ${error.message}`);
+        unavailable.add(coll);
+        continue;
+      }
       if (error) throw new Error(`nie udało się wczytać ${coll}: ${error.message}`);
       state[coll] = (data || []).map(MAP[coll].fromRow);
       // snapshot budujemy z tego, co właśnie przyszło — w tej samej postaci,
@@ -357,6 +381,7 @@ window.LOGTXT = (() => {
     async signOut() {
       userId = null;
       for (const coll of COLLECTIONS) delete snapshot[coll];
+      unavailable.clear();
       if (sb) await sb.auth.signOut();
     },
 
