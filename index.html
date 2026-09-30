@@ -333,11 +333,20 @@
         <section class="view view-dash active" data-view="dashboard">
           <div class="dash-grid">
 
-            <!-- ── powitanie ── -->
+            <!-- ── powitanie + motto dnia ── -->
             <div class="dash-card dash-hello">
               <div class="dash-hello-text">
                 <h1 class="mono" id="helloTitle">witaj z powrotem<span class="cursor" aria-hidden="true">_</span></h1>
                 <p class="view-sub" id="helloLine"></p>
+                <div class="dash-motto" id="dashMotto">
+                  <div class="motto-head">
+                    <span class="motto-label mono" data-i18n="dash.motto.label">// motto dnia</span>
+                    <button type="button" class="motto-fav" id="mottoFav" aria-pressed="false" data-i18n-aria="dash.motto.fav" aria-label="Dodaj do ulubionych">☆</button>
+                    <button type="button" class="panel-link mono motto-favs-toggle" id="mottoFavsToggle" aria-expanded="false" hidden></button>
+                  </div>
+                  <p class="motto-text" id="mottoText"></p>
+                  <ul class="motto-favs" id="mottoFavs" hidden></ul>
+                </div>
               </div>
               <span class="dash-hello-mark mono" aria-hidden="true">▍</span>
             </div>
@@ -378,7 +387,7 @@
               </div>
             </div>
 
-            <!-- ── kolumna boczna: szybkie akcje, nastrój, motto dnia ── -->
+            <!-- ── kolumna boczna: szybkie akcje, nastrój ── -->
             <div class="dash-col dash-col-side">
               <!-- ── szybkie akcje ── -->
               <div class="dash-card dash-actions">
@@ -406,12 +415,6 @@
                   <button type="button" class="mood-btn" data-level="5" data-i18n-aria="mood.level.5" aria-label="Świetnie"><span class="mood-cell l5"></span><span class="mono">5</span></button>
                 </div>
                 <p class="dash-mood-status mono" id="dashMoodStatus"></p>
-              </div>
-
-              <div class="dash-card dash-motto" id="dashMotto">
-                <span class="motto-label mono" data-i18n="dash.motto.label">// motto dnia</span>
-                <p class="motto-text" id="mottoText"></p>
-                <span class="motto-mark" aria-hidden="true">▍</span>
               </div>
             </div>
 

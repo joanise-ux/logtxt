@@ -2197,6 +2197,59 @@
     return `${k.slice(5)} ${fmtTime(ts)}`;
   }
 
+  /* ── ulubione motta: numery motta (klucze i18n), więc tłumaczą się razem z językiem.
+     Trzymane lokalnie w przeglądarce — to drobna preferencja, nie wpis w dzienniku. ── */
+  const MOTTO_FAVS_KEY = "logtxt.mottoFavs";
+  let todayMotto = 1;
+  let mottoFavsOpen = false;
+  let mottoFavs = [];
+  try {
+    const raw = JSON.parse(localStorage.getItem(MOTTO_FAVS_KEY) || "[]");
+    if (Array.isArray(raw)) mottoFavs = raw.filter((n) => Number.isInteger(n) && n >= 1 && n <= MOTTO_COUNT);
+  } catch (e) { /* uszkodzony wpis — zaczynamy od pustej listy */ }
+
+  function saveMottoFavs() {
+    try { localStorage.setItem(MOTTO_FAVS_KEY, JSON.stringify(mottoFavs)); } catch (e) { /* brak miejsca / tryb prywatny */ }
+  }
+
+  function toggleMottoFav(n) {
+    mottoFavs = mottoFavs.includes(n) ? mottoFavs.filter((x) => x !== n) : [...mottoFavs, n];
+    if (!mottoFavs.length) mottoFavsOpen = false;
+    saveMottoFavs();
+    renderMottoFavs();
+  }
+
+  function renderMottoFavs() {
+    const isFav = mottoFavs.includes(todayMotto);
+    const favBtn = $("#mottoFav");
+    favBtn.textContent = isFav ? "★" : "☆";
+    favBtn.setAttribute("aria-pressed", String(isFav));
+    const favLabel = tr(isFav ? "dash.motto.unfav" : "dash.motto.fav");
+    favBtn.setAttribute("aria-label", favLabel);
+    favBtn.title = favLabel;
+
+    const toggle = $("#mottoFavsToggle");
+    toggle.hidden = !mottoFavs.length;
+    toggle.textContent = tr(mottoFavsOpen ? "dash.motto.favsHide" : "dash.motto.favs", { n: mottoFavs.length });
+    toggle.setAttribute("aria-expanded", String(mottoFavsOpen));
+
+    const list = $("#mottoFavs");
+    list.hidden = !mottoFavsOpen || !mottoFavs.length;
+    list.innerHTML = mottoFavs.map((n) => `<li>
+        <span>${escapeHtml(tr(`dash.motto.${n}`))}</span>
+        <button type="button" class="motto-unfav" data-unfav="${n}" aria-label="${escapeAttr(tr("dash.motto.unfav"))}" title="${escapeAttr(tr("dash.motto.unfav"))}">×</button>
+      </li>`).join("");
+    $$("#mottoFavs .motto-unfav").forEach((btn) =>
+      btn.addEventListener("click", () => toggleMottoFav(Number(btn.dataset.unfav)))
+    );
+  }
+
+  $("#mottoFav").addEventListener("click", () => toggleMottoFav(todayMotto));
+  $("#mottoFavsToggle").addEventListener("click", () => {
+    mottoFavsOpen = !mottoFavsOpen;
+    renderMottoFavs();
+  });
+
   function renderDashboard() {
     const now = new Date();
     const h = now.getHours();
@@ -2230,7 +2283,9 @@
     const mottoEl = $("#mottoText");
     if (mottoEl) {
       const dayIndex = Math.floor(now.getTime() / 86400000);
-      mottoEl.textContent = tr(`dash.motto.${(dayIndex % MOTTO_COUNT) + 1}`);
+      todayMotto = (dayIndex % MOTTO_COUNT) + 1;
+      mottoEl.textContent = tr(`dash.motto.${todayMotto}`);
+      renderMottoFavs();
     }
 
     /* ── kafelki sekcji ── */
