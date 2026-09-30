@@ -1443,9 +1443,59 @@
     ta.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
-  $$("#noteMdToolbar .md-btn").forEach((btn) =>
+  $$("#noteMdToolbar .md-btn[data-md]").forEach((btn) =>
     btn.addEventListener("click", () => mdApply(btn.dataset.md))
   );
+
+  /* ── notatka → tasks.todo ──
+     zaznaczone linie (albo linia z kursorem) trafiają jako zadania do
+     tasks.todo, a w notatce stają się checkboxami — widać od razu, co już
+     poszło do listy. Linie odhaczone [x] i duplikaty otwartych zadań pomijamy. */
+  const TASK_LINE_PREFIX = /^\s*(?:[-*]\s*\[[ x~]\]\s*|[-*]\s+|#{1,6}\s*|>\s?)?/i;
+
+  function noteLinesToTasks() {
+    const ta = $("#noteBody");
+    const note = state.notes.find((n) => n.id === activeNoteId);
+    if (!note) return;
+    const val = ta.value;
+    const start = ta.selectionStart, end = ta.selectionEnd;
+    const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+    // zaznaczenie kończące się tuż po \n nie obejmuje następnej linii
+    const endAt = end > start && val[end - 1] === "\n" ? end - 1 : end;
+    let lineEnd = val.indexOf("\n", endAt);
+    if (lineEnd === -1) lineEnd = val.length;
+
+    const open = new Set(state.tasks.filter((t) => t.status !== "done").map((t) => t.text.toLowerCase()));
+    const sprint = currentSprint();
+    let added = 0, seen = 0;
+
+    const out = val.slice(lineStart, lineEnd).split("\n").map((line) => {
+      if (/^\s*[-*]\s*\[x\]/i.test(line)) return line; // już zrobione
+      const text = line.replace(TASK_LINE_PREFIX, "").trim();
+      if (!text) return line;
+      seen++;
+      if (!open.has(text.toLowerCase())) {
+        open.add(text.toLowerCase());
+        state.tasks.unshift({ id: uid(), ts: Date.now(), text, status: "pending", sprint });
+        added++;
+      }
+      const indent = line.match(/^\s*/)[0];
+      return /^\s*[-*]\s*\[[ ~]\]/.test(line) ? line : `${indent}- [ ] ${text}`;
+    }).join("\n");
+
+    if (!seen) { toast(tr("notes.toTask.empty")); ta.focus(); return; }
+
+    ta.value = val.slice(0, lineStart) + out + val.slice(lineEnd);
+    ta.focus();
+    ta.setSelectionRange(lineStart, lineStart + out.length);
+    note.body = ta.value;
+    note.updated = Date.now();
+    saveState();
+    renderCounts();
+    toast(added ? tr("notes.toTask.added", { n: added }) : tr("notes.toTask.dup"));
+  }
+
+  $("#noteToTaskBtn").addEventListener("click", noteLinesToTasks);
 
   $("#noteBody").addEventListener("keydown", (e) => {
     const ta = e.target;

@@ -1138,6 +1138,9 @@ textarea:focus, input:focus {
 .md-btn:hover { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--border-soft)); }
 .md-btn strong { color: inherit; }
 .md-btn em { color: inherit; }
+/* notatka → tasks.todo: odsunięta od formatowania, w kolorze zadań */
+.md-btn-todo { margin-left: auto; color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, var(--border-soft)); }
+.md-btn-todo:hover { background: color-mix(in srgb, var(--accent) 10%, var(--bg-raised)); }
 .md-preview blockquote {
   border-left: 2px solid var(--accent-2);
   padding-left: 12px;
