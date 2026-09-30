@@ -476,7 +476,7 @@ textarea:focus, input:focus {
   gap: 16px;
   align-items: start;
 }
-.dash-hello, .dash-actions { align-self: stretch; }
+.dash-hello, .dash-goals { align-self: stretch; }
 
 /* „ładowanie sesji" — karty wchodzą kaskadą */
 .view.active .dash-grid > *,
@@ -637,6 +637,7 @@ textarea:focus, input:focus {
 .dash-goals {
   background: var(--surface-contrast);
   border-color: var(--surface-contrast-border);
+  margin-bottom: 0;
 }
 .dash-goals .panel-title { color: var(--surface-contrast-dim); }
 .dash-goals .empty-state { color: var(--surface-contrast-dim); border-color: var(--surface-contrast-border); }
@@ -1809,11 +1810,10 @@ body.lightbox-open { overflow: hidden; }
   .dash-actions .qa-btn { width: auto; flex: 1 1 160px; }
   /* kolumny znikają — karty wchodzą wprost do siatki, żeby dało się je przestawić */
   .dash-col { display: contents; }
-  .dash-mood { order: 0; }
+  .dash-actions, .dash-mood { order: 0; }
   .dash-motto { order: 1; }
   .recent-panel { order: 2; }
   .pinned-panel { order: 3; }
-  .dash-goals { order: 4; }
   .dash-tiles { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 }
 
